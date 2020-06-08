@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = ["Nick Pascucci <nick.pascucci@spire.com>"]
 edition = "2018"
 
+description = "Rust wrapper around the SGP-4 orbital propagator."
+readme = "README.md"
+
 build = "build.rs"
 links = "static=sgp4"
 
