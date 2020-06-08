@@ -1,5 +1,3 @@
-use cc;
-
 fn main() {
 
     let env_path = option_env!("SGP4_LIB_DIR");
