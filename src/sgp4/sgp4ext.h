@@ -86,6 +86,7 @@ void    days2mdhms
           int& mon, int& day, int& hr, int& minute, double& sec
         );
 
+extern "C"
 void    invjday
         (
           double jd,

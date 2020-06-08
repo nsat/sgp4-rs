@@ -512,16 +512,6 @@ extern "C" {
         minute: &mut c_int,
         seconds: &mut c_double,
     );
-
-    fn jday(
-        year: c_int,
-        month: c_int,
-        day: c_int,
-        hour: c_int,
-        minute: c_int,
-        seconds: c_double,
-        julian_day: &mut c_double,
-    );
 }
 
 #[cfg(test)]

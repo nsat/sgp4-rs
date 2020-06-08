@@ -1,5 +1,5 @@
 use chrono::prelude::*;
-use chrono::{DateTime, Duration};
+use chrono::DateTime;
 
 use thiserror::Error;
 
@@ -7,8 +7,8 @@ mod sgp4_sys;
 
 #[derive(Debug, Error)]
 pub enum Error {
-    #[error("TLE was malformed")]
-    MalformedTwoLineElement,
+    #[error("TLE was malformed: {0}")]
+    MalformedTwoLineElement(String),
     #[error("Error in SGP4 propagator")]
     PropagationError,
     #[error("{0}")]
@@ -22,39 +22,42 @@ pub struct StateVector {
     pub velocity: [f64; 3],
 }
 
-const TLE_LINE_LENGTH: usize = 70;
+const TLE_LINE_LENGTH: usize = 69;
 
 pub struct TwoLineElement {
-    line1: String,
-    line2: String,
+    elements: sgp4_sys::OrbitalElementSet,
 }
 
 impl TwoLineElement {
+    /// Create a validated TwoLineElement from a string.
     pub fn new(line1: &str, line2: &str) -> Result<TwoLineElement> {
         if line1.len() != TLE_LINE_LENGTH || line2.len() != TLE_LINE_LENGTH {
-            return Err(Error::MalformedTwoLineElement);
+            return Err(Error::MalformedTwoLineElement("Line is the wrong length".to_string()));
         }
-        Ok(TwoLineElement { line1: line1.to_owned(), line2: line2.to_owned() })
+
+        let elements = sgp4_sys::to_orbital_elements(
+            line1,
+            line2,
+            sgp4_sys::RunType::Verification,
+            sgp4_sys::OperationMode::Improved,
+            sgp4_sys::GravitationalConstant::Wgs84,
+        )
+        .map_err(|e| Error::MalformedTwoLineElement(format!("{:?}", e)))?;
+
+        Ok(TwoLineElement { elements })
     }
 
+    /// Get the epoch of a TwoLineElement.
     pub fn epoch(&self) -> Result<DateTime<Utc>> {
-        let sat_state = self
-            .to_orbital_elements()
-            .map_err(|_e| Error::MalformedTwoLineElement)?;
-
-        Ok(sat_state.epoch())
+        Ok(self.elements.epoch())
     }
 
-    pub fn propagate_to(&self, dt: DateTime<Utc>) -> Result<StateVector> {
-        let sat_state = self
-            .to_orbital_elements()
-            .map_err(|_e| Error::MalformedTwoLineElement)?;
-
-        let tle_epoch = sat_state.epoch();
-        let min_since_epoch = (dt - tle_epoch).num_days() as f64;
+    pub fn propagate_to(&self, t: DateTime<Utc>) -> Result<StateVector> {
+        let tle_epoch = self.elements.epoch();
+        let min_since_epoch = (t - tle_epoch).num_days() as f64;
 
         let (r, v) = sgp4_sys::run_sgp4(
-            sat_state,
+            self.elements,
             sgp4_sys::GravitationalConstant::Wgs84,
             min_since_epoch,
         )
@@ -65,22 +68,13 @@ impl TwoLineElement {
             velocity: v.to_owned(),
         })
     }
-
-    fn to_orbital_elements(&self) -> Result<sgp4_sys::OrbitalElementSet> {
-        sgp4_sys::to_orbital_elements(
-            &self.line1,
-            &self.line2,
-            sgp4_sys::RunType::Verification,
-            sgp4_sys::OperationMode::Improved,
-            sgp4_sys::GravitationalConstant::Wgs84,
-        )
-        .map_err(|e| Error::UnknownError(format!("{:?}", e)))
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use chrono::Duration;
 
     #[test]
     fn test_simple_propagation() -> Result<()> {
@@ -90,8 +84,8 @@ mod tests {
         let tle = TwoLineElement::new(line1, line2)?;
         let epoch = tle.epoch()?;
 
-        let s1 = tle.propagate_to(epoch);
-        let s2 = tle.propagate_to(epoch + Duration::hours(1));
+        let _s1 = tle.propagate_to(epoch);
+        let _s2 = tle.propagate_to(epoch + Duration::hours(1));
 
         Ok(())
     }
