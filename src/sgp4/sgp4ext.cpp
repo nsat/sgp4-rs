@@ -718,8 +718,3 @@ void    invjday
      days2mdhms(year, days, mon, day, hr, minute, sec);
      sec = sec - 0.00000086400;
    }  // end invjday
-
-
-
-
-

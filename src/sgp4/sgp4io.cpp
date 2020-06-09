@@ -259,5 +259,3 @@ void twoline2rv
                  satrec.ecco, satrec.argpo, satrec.inclo, satrec.mo, satrec.no,
                  satrec.nodeo, satrec);
     } // end twoline2rv
-
-

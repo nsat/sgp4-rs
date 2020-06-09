@@ -2124,8 +2124,3 @@ void getgravconst
          }
 
      }   // end getgravconst
-
-
-
-
-

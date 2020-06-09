@@ -44,4 +44,3 @@ void twoline2rv
      );
 
 #endif
-
