@@ -141,8 +141,11 @@ mod tests {
         let tle = TwoLineElement::new(line1, line2)?;
         let epoch = tle.epoch()?;
 
-        let _s1 = tle.propagate_to(epoch);
-        let _s2 = tle.propagate_to(epoch - Duration::days(30));
+        let s1 = tle.propagate_to(epoch)?;
+        let s2 = tle.propagate_to(epoch - Duration::days(30))?;
+
+        assert_ne!(s1.position, s2.position);
+        assert_ne!(s1.velocity, s2.velocity);
 
         Ok(())
     }
