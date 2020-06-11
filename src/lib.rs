@@ -31,8 +31,23 @@ pub struct TwoLineElement {
 impl TwoLineElement {
     /// Create a validated TwoLineElement from a string.
     pub fn new(line1: &str, line2: &str) -> Result<TwoLineElement> {
-        if line1.len() != TLE_LINE_LENGTH || line2.len() != TLE_LINE_LENGTH {
-            return Err(Error::MalformedTwoLineElement("Line is the wrong length".to_string()));
+        let line1 = line1.trim();
+        let line2 = line2.trim();
+
+        if line1.len() != TLE_LINE_LENGTH {
+            return Err(Error::MalformedTwoLineElement(format!(
+                "Line 1 is the wrong length. Expected {}, but got {}",
+                TLE_LINE_LENGTH,
+                line1.len()
+            )));
+        }
+
+        if line2.len() != TLE_LINE_LENGTH {
+            return Err(Error::MalformedTwoLineElement(format!(
+                "Line 2 is the wrong length. Expected {}, but got {}",
+                TLE_LINE_LENGTH,
+                line2.len()
+            )));
         }
 
         let elements = sgp4_sys::to_orbital_elements(
@@ -45,6 +60,19 @@ impl TwoLineElement {
         .map_err(|e| Error::MalformedTwoLineElement(format!("{:?}", e)))?;
 
         Ok(TwoLineElement { elements })
+    }
+
+    /// Create a TwoLineElement from a string containing both lines.
+    pub fn from_lines(combined_lines: &str) -> Result<TwoLineElement> {
+        let lines: Vec<_> = combined_lines.split("\n").collect();
+        if lines.len() != 2 {
+            Err(Error::MalformedTwoLineElement(format!(
+                "Expected two lines, got {}",
+                lines.len()
+            )))
+        } else {
+            TwoLineElement::new(&lines[0], &lines[1])
+        }
     }
 
     /// Get the epoch of a TwoLineElement.
@@ -86,6 +114,16 @@ mod tests {
 
         let _s1 = tle.propagate_to(epoch);
         let _s2 = tle.propagate_to(epoch + Duration::hours(1));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_tle_from_lines() -> Result<()> {
+        let lines = "1 25544U 98067A   20148.21301450  .00001715  00000-0  38778-4 0  9992
+                     2 25544  51.6435  92.2789 0002570 358.0648 144.9972 15.49396855228767";
+
+        let tle = TwoLineElement::from_lines(lines)?;
 
         Ok(())
     }
