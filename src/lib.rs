@@ -62,17 +62,22 @@ impl TwoLineElement {
         Ok(TwoLineElement { elements })
     }
 
-    /// Create a TwoLineElement from a string containing both lines.
+    /// Create a TwoLineElement from a string containing both lines, and optionally a header line.
     pub fn from_lines(combined_lines: &str) -> Result<TwoLineElement> {
-        let lines: Vec<_> = combined_lines.split("\n").collect();
-        if lines.len() != 2 {
-            Err(Error::MalformedTwoLineElement(format!(
-                "Expected two lines, got {}",
-                lines.len()
-            )))
-        } else {
-            TwoLineElement::new(&lines[0], &lines[1])
-        }
+        let lines: Vec<_> = {
+            let mut ls: Vec<_> = combined_lines.split("\n").collect();
+            if ls.len() == 3 {
+                ls.split_off(1)
+            } else if ls.len() == 2 {
+                ls
+            } else {
+                return Err(Error::MalformedTwoLineElement(format!(
+                    "Expected two lines, got {}",
+                    ls.len()
+                )));
+            }
+        };
+        TwoLineElement::new(&lines[0], &lines[1])
     }
 
     /// Get the epoch of a TwoLineElement.
@@ -123,7 +128,13 @@ mod tests {
         let lines = "1 25544U 98067A   20148.21301450  .00001715  00000-0  38778-4 0  9992
                      2 25544  51.6435  92.2789 0002570 358.0648 144.9972 15.49396855228767";
 
-        let tle = TwoLineElement::from_lines(lines)?;
+        let _tle = TwoLineElement::from_lines(lines)?;
+
+        let lines = "ISS (ZARYA)
+                     1 25544U 98067A   20148.21301450  .00001715  00000-0  38778-4 0  9992
+                     2 25544  51.6435  92.2789 0002570 358.0648 144.9972 15.49396855228767";
+
+        let _tle = TwoLineElement::from_lines(lines)?;
 
         Ok(())
     }
