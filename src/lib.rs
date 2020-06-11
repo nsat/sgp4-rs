@@ -90,7 +90,7 @@ impl TwoLineElement {
 
     pub fn propagate_to(&self, t: DateTime<Utc>) -> Result<StateVector> {
         let tle_epoch = self.elements.epoch();
-        let min_since_epoch = (t - tle_epoch).num_minutes() as f64;
+        let min_since_epoch = (t - tle_epoch).num_milliseconds() as f64 / 60_000.;
 
         let (r, v) = sgp4_sys::run_sgp4(
             self.elements,
