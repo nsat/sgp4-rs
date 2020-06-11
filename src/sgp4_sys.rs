@@ -102,8 +102,7 @@ impl Default for OperationMode {
 const EPSILON: f64 = 0.000_000_1;
 
 #[repr(C)]
-#[allow(non_camel_case_types)]
-#[allow(dead_code)]
+#[allow(dead_code, non_camel_case_types)]
 #[derive(Copy, Clone, Debug)]
 pub enum GravitationalConstant {
     Wgs72Old,
