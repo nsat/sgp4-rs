@@ -66,7 +66,7 @@ impl TwoLineElement {
     pub fn from_lines(combined_lines: &str) -> Result<TwoLineElement> {
         let lines: Vec<_> = {
             let mut ls: Vec<_> = combined_lines
-                .split("\n")
+                .split('\n')
                 .filter(|s| !s.is_empty())
                 .collect();
             if ls.len() == 3 {
