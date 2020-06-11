@@ -94,7 +94,7 @@ impl TwoLineElement {
         // TODO: determine correct behaviour for negative prop
         // assert!(t >= tle_epoch);
 
-        let min_since_epoch = (t - tle_epoch).num_minutes() as f64;
+        let min_since_epoch = (t - tle_epoch).num_milliseconds() as f64 / 60_000.;
 
         let (r, v) = sgp4_sys::run_sgp4(
             self.elements,
