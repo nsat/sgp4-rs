@@ -17,6 +17,7 @@ pub enum Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
+#[derive(Debug)]
 pub struct StateVector {
     pub position: [f64; 3],
     pub velocity: [f64; 3],
@@ -66,7 +67,7 @@ impl TwoLineElement {
     pub fn from_lines(combined_lines: &str) -> Result<TwoLineElement> {
         let lines: Vec<_> = {
             let mut ls: Vec<_> = combined_lines
-                .split("\n")
+                .split('\n')
                 .filter(|s| !s.is_empty())
                 .collect();
             if ls.len() == 3 {
@@ -90,6 +91,9 @@ impl TwoLineElement {
 
     pub fn propagate_to(&self, t: DateTime<Utc>) -> Result<StateVector> {
         let tle_epoch = self.elements.epoch();
+        // TODO: determine correct behaviour for negative prop
+        // assert!(t >= tle_epoch);
+
         let min_since_epoch = (t - tle_epoch).num_milliseconds() as f64 / 60_000.;
 
         let (r, v) = sgp4_sys::run_sgp4(
@@ -122,6 +126,23 @@ mod tests {
 
         let s1 = tle.propagate_to(epoch)?;
         let s2 = tle.propagate_to(epoch + Duration::hours(1))?;
+
+        assert_ne!(s1.position, s2.position);
+        assert_ne!(s1.velocity, s2.velocity);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_negative_time_propagation() -> Result<()> {
+        let line1 = "1 25544U 98067A   20148.21301450  .00001715  00000-0  38778-4 0  9992";
+        let line2 = "2 25544  51.6435  92.2789 0002570 358.0648 144.9972 15.49396855228767";
+
+        let tle = TwoLineElement::new(line1, line2)?;
+        let epoch = tle.epoch()?;
+
+        let s1 = tle.propagate_to(epoch)?;
+        let s2 = tle.propagate_to(epoch - Duration::days(30))?;
 
         assert_ne!(s1.position, s2.position);
         assert_ne!(s1.velocity, s2.velocity);
