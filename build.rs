@@ -9,6 +9,7 @@ fn main() {
             .file("src/sgp4/sgp4ext.cpp")
             .file("src/sgp4/sgp4unit.cpp")
             .file("src/sgp4/sgp4io.cpp")
+            .cpp_link_stdlib(None)
             // Uncomment to enable strict compilation.
             // This is not typically enabled because it may cause compilation failures in
             // environments we can't test, so it is primarily useful for developers of the crate.
