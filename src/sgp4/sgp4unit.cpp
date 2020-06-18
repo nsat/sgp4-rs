@@ -937,7 +937,7 @@ static void dspace(int irez, double d2201, double d2211, double d3210,
                    double &mm, double &xni, double &nodem, double &dndt,
                    double &nm) {
   const double twopi = 2.0 * pi;
-  int iretn, iret;
+  int iretn;
   double delt, ft, theta, x2li, x2omi, xl, xldot, xnddt, xndt, xomi, g22, g32,
       g44, g52, g54, fasx2, fasx4, fasx6, rptim, step2, stepn, stepp;
 
@@ -996,7 +996,6 @@ static void dspace(int irez, double d2201, double d2211, double d3210,
       delt = stepn;
 
     iretn = 381; // added for do loop
-    iret = 0;    // added for loop
     while (iretn == 381) {
       /* ------------------- dot terms calculated ------------- */
       /* ----------- near - synchronous resonance terms ------- */
@@ -1032,7 +1031,6 @@ static void dspace(int irez, double d2201, double d2211, double d3210,
       /* ----------------------- integrator ------------------- */
       // sgp4fix move end checks to end of routine
       if (fabs(t - atime) >= stepp) {
-        iret = 0;
         iretn = 381;
       } else // exit here
       {
@@ -1274,7 +1272,7 @@ bool sgp4init(gravconsttype whichconst, char opsmode, const int satn,
       sz21, sz22, sz23, sz31, sz32, sz33, tc, temp, temp1, temp2, temp3, tsi,
       xpidot, xhdot1, z1, z2, z3, z11, z12, z13, z21, z22, z23, z31, z32, z33,
       qzms2t, ss, j2, j3oj2, j4, x2o3, r[3], v[3], tumin, mu, radiusearthkm,
-      xke, j3, delmotemp, qzms2ttemp, qzms24temp;
+      xke, j3, delmotemp, qzms2ttemp, qzms24temp = 0.0;
 
   /* ------------------------ initialization --------------------- */
   // sgp4fix divisor for divide by zero check on inclination
