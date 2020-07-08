@@ -17,8 +17,13 @@ pub enum Error {
 
 type Result<T> = std::result::Result<T, Error>;
 
+/// A state vector, in the TEME-ECI coordinate frame, for an orbiting body.
+///
+/// To obtain the state of an object at a specific time, use the propagation functions provided by
+/// [TwoLineElement].
 #[derive(Debug)]
 pub struct StateVector {
+    pub epoch: DateTime<Utc>,
     pub position: [f64; 3],
     pub velocity: [f64; 3],
 }
@@ -89,6 +94,8 @@ impl TwoLineElement {
         Ok(self.elements.epoch())
     }
 
+
+    /// Propagate a TwoLineElement to the given time to obtain a state vector for the object.
     pub fn propagate_to(&self, t: DateTime<Utc>) -> Result<StateVector> {
         let tle_epoch = self.elements.epoch();
         // TODO: determine correct behaviour for negative prop
@@ -104,9 +111,47 @@ impl TwoLineElement {
         .map_err(|_e| Error::PropagationError)?;
 
         Ok(StateVector {
+            epoch: t,
             position: r.to_owned(),
             velocity: v.to_owned(),
         })
+    }
+}
+
+/// Wrapper type representing a Julian day.
+///
+/// This is the number of days since the start of the Julian astronomical calendar in 4713 BC, used
+/// to provide a consistent time reference for astronomical calculations.
+pub struct JulianDay(f64);
+
+impl From<DateTime<Utc>> for JulianDay {
+    fn from(d: DateTime<Utc>) -> Self {
+        JulianDay(sgp4_sys::datetime_to_julian_day(d) as f64)
+    }
+}
+
+impl From<JulianDay> for DateTime<Utc> {
+    fn from(jd: JulianDay) -> Self {
+        sgp4_sys::julian_day_to_datetime(jd.0)
+    }
+}
+
+/// Wrapper type representing the angular form of Greenwhich Mean Sidereal Time.
+///
+/// This is primarily used to account for the Earth's rotation during conversion between fixed and
+/// inertial coordinate frames. Note that this is an angle measured in radians, and not a "time" as
+/// such. The value may range from 0 to 2π.
+pub struct GreenwhichMeanSiderealTime(f64);
+
+impl GreenwhichMeanSiderealTime {
+    pub fn as_radians(&self) -> f64 {
+        self.0
+    }
+}
+
+impl From<DateTime<Utc>> for GreenwhichMeanSiderealTime {
+    fn from(d: DateTime<Utc>) -> Self {
+        GreenwhichMeanSiderealTime(sgp4_sys::datetime_to_gstime(d) as f64)
     }
 }
 
@@ -178,5 +223,19 @@ mod tests {
         let _tle = TwoLineElement::from_lines(lines)?;
 
         Ok(())
+    }
+
+    #[test]
+    fn test_julian_day_identity() {
+        let t = Utc.ymd(2020, 01, 01).and_hms(0, 0, 0);
+        assert_eq!(DateTime::<Utc>::from(JulianDay::from(t)), t);
+    }
+
+    #[test]
+    fn test_gmst_conversion() {
+        let t = Utc.ymd(2020, 01, 01).and_hms(0, 0, 0);
+        let a: f64 = 100.1218209532; // GMST for 2020-01-01T00:00:00 in degrees
+        let a_rad = a.to_radians();
+        assert!(sgp4_sys::close(GreenwhichMeanSiderealTime::from(t).as_radians(), a_rad));
     }
 }

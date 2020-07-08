@@ -246,7 +246,7 @@ pub struct OrbitalElementSet {
 }
 
 /// Determine if two C doubles are "close", as defined by the EPSILON constant.
-fn close(a: c_double, b: c_double) -> bool {
+pub(crate) fn close(a: c_double, b: c_double) -> bool {
     let err = (a - b as f64).abs();
     err <= EPSILON
 }
@@ -362,6 +362,11 @@ impl PartialEq for OrbitalElementSet {
 
 impl OrbitalElementSet {
     pub fn epoch(&self) -> DateTime<Utc> {
+        julian_day_to_datetime(self.jdsatepoch)
+    }
+}
+
+pub(crate) fn julian_day_to_datetime(jd: c_double) -> DateTime<Utc> {
         let mut year = c_int::default();
         let mut month = c_int::default();
         let mut day = c_int::default();
@@ -371,7 +376,7 @@ impl OrbitalElementSet {
 
         unsafe {
             invjday(
-                self.jdsatepoch,
+                jd,
                 &mut year,
                 &mut month,
                 &mut day,
@@ -383,7 +388,25 @@ impl OrbitalElementSet {
 
         Utc.ymd(year, month as u32, day as u32)
             .and_hms(hour as u32, minute as u32, second as u32)
+
+}
+
+pub(crate) fn datetime_to_julian_day(d: DateTime<Utc>) -> c_double {
+    let mut jd = c_double::default();
+
+    unsafe {
+        jday(
+            d.year() as c_int,
+            d.month() as c_int,
+            d.day() as c_int,
+            d.hour() as c_int,
+            d.minute() as c_int,
+            d.second() as c_double,
+            &mut jd
+        );
     }
+
+    jd
 }
 
 pub fn to_orbital_elements(
@@ -449,6 +472,13 @@ pub fn run_sgp4(
         Err(Error::Sgp4)
     } else {
         Ok((ro, vo))
+    }
+}
+
+pub(crate) fn datetime_to_gstime(d: DateTime<Utc>) -> c_double {
+    let jd = datetime_to_julian_day(d);
+    unsafe {
+        gstime(jd)
     }
 }
 
