@@ -24,7 +24,11 @@ type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug)]
 pub struct StateVector {
     pub epoch: DateTime<Utc>,
+
+    /// The satellite position in km.
     pub position: [f64; 3],
+
+    /// The satellite velocity in km/s.
     pub velocity: [f64; 3],
 }
 
@@ -136,22 +140,22 @@ impl From<JulianDay> for DateTime<Utc> {
     }
 }
 
-/// Wrapper type representing the angular form of Greenwhich Mean Sidereal Time.
+/// Wrapper type representing the angular form of Greenwich Mean Sidereal Time.
 ///
 /// This is primarily used to account for the Earth's rotation during conversion between fixed and
 /// inertial coordinate frames. Note that this is an angle measured in radians, and not a "time" as
 /// such. The value may range from 0 to 2π.
-pub struct GreenwhichMeanSiderealTime(f64);
+pub struct GreenwichMeanSiderealTime(f64);
 
-impl GreenwhichMeanSiderealTime {
+impl GreenwichMeanSiderealTime {
     pub fn as_radians(&self) -> f64 {
         self.0
     }
 }
 
-impl From<DateTime<Utc>> for GreenwhichMeanSiderealTime {
+impl From<DateTime<Utc>> for GreenwichMeanSiderealTime {
     fn from(d: DateTime<Utc>) -> Self {
-        GreenwhichMeanSiderealTime(sgp4_sys::datetime_to_gstime(d) as f64)
+        GreenwichMeanSiderealTime(sgp4_sys::datetime_to_gstime(d) as f64)
     }
 }
 
@@ -236,6 +240,6 @@ mod tests {
         let t = Utc.ymd(2020, 01, 01).and_hms(0, 0, 0);
         let a: f64 = 100.1218209532; // GMST for 2020-01-01T00:00:00 in degrees
         let a_rad = a.to_radians();
-        assert!(sgp4_sys::close(GreenwhichMeanSiderealTime::from(t).as_radians(), a_rad));
+        assert!(sgp4_sys::close(GreenwichMeanSiderealTime::from(t).as_radians(), a_rad));
     }
 }
