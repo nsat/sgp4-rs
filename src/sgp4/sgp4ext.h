@@ -29,31 +29,32 @@
 
 // ------------------------- function declarations -------------------------
 
-double sgn(double x);
+extern "C" {
+  double sgn(double x);
 
-double mag(double x[3]);
+  double mag(double x[3]);
 
-void cross(double vec1[3], double vec2[3], double outvec[3]);
+  void cross(double vec1[3], double vec2[3], double outvec[3]);
 
-double dot(double x[3], double y[3]);
+  double dot(double x[3], double y[3]);
 
-double angle(double vec1[3], double vec2[3]);
+  double angle(double vec1[3], double vec2[3]);
 
-void newtonnu(double ecc, double nu, double &e0, double &m);
+  void newtonnu(double ecc, double nu, double &e0, double &m);
 
-double asinh(double xval);
+  double asinh(double xval);
 
-void rv2coe(double r[3], double v[3], double mu, double &p, double &a,
-            double &ecc, double &incl, double &omega, double &argp, double &nu,
-            double &m, double &arglat, double &truelon, double &lonper);
+  void rv2coe(double r[3], double v[3], double mu, double &p, double &a,
+              double &ecc, double &incl, double &omega, double &argp, double &nu,
+              double &m, double &arglat, double &truelon, double &lonper);
 
-void jday(int year, int mon, int day, int hr, int minute, double sec,
-          double &jd);
+  void jday(int year, int mon, int day, int hr, int minute, double sec,
+            double &jd);
 
-void days2mdhms(int year, double days, int &mon, int &day, int &hr, int &minute,
-                double &sec);
+  void days2mdhms(int year, double days, int &mon, int &day, int &hr, int &minute,
+                  double &sec);
 
-extern "C" void invjday(double jd, int &year, int &mon, int &day, int &hr,
-                        int &minute, double &sec);
-
+  void invjday(double jd, int &year, int &mon, int &day, int &hr,
+               int &minute, double &sec);
+}
 #endif

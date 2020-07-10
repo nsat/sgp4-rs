@@ -227,19 +227,26 @@ pub struct OrbitalElementSet {
     nddot: c_double,
     ndot: c_double,
 
+    // SGP4-type drag coefficient
     bstar: c_double,
+
     rcse: c_double,
+    // Inclination
     inclo: c_double,
+    // Right ascension of the ascending node
     nodeo: c_double,
+    // Eccentricity
     ecco: c_double,
+    // Argument of perigee
     argpo: c_double,
+    // Mean anomaly
     mo: c_double,
 
     no: c_double,
 }
 
 /// Determine if two C doubles are "close", as defined by the EPSILON constant.
-fn close(a: c_double, b: c_double) -> bool {
+pub(crate) fn close(a: c_double, b: c_double) -> bool {
     let err = (a - b as f64).abs();
     err <= EPSILON
 }
@@ -355,6 +362,11 @@ impl PartialEq for OrbitalElementSet {
 
 impl OrbitalElementSet {
     pub fn epoch(&self) -> DateTime<Utc> {
+        julian_day_to_datetime(self.jdsatepoch)
+    }
+}
+
+pub(crate) fn julian_day_to_datetime(jd: c_double) -> DateTime<Utc> {
         let mut year = c_int::default();
         let mut month = c_int::default();
         let mut day = c_int::default();
@@ -364,7 +376,7 @@ impl OrbitalElementSet {
 
         unsafe {
             invjday(
-                self.jdsatepoch,
+                jd,
                 &mut year,
                 &mut month,
                 &mut day,
@@ -374,12 +386,27 @@ impl OrbitalElementSet {
             );
         }
 
-        Utc.ymd(year, month as u32, day as u32).and_hms(
-            hour as u32,
-            minute as u32,
-            second as u32,
-        )
+        Utc.ymd(year, month as u32, day as u32)
+            .and_hms(hour as u32, minute as u32, second as u32)
+
+}
+
+pub(crate) fn datetime_to_julian_day(d: DateTime<Utc>) -> c_double {
+    let mut jd = c_double::default();
+
+    unsafe {
+        jday(
+            d.year() as c_int,
+            d.month() as c_int,
+            d.day() as c_int,
+            d.hour() as c_int,
+            d.minute() as c_int,
+            d.second() as c_double,
+            &mut jd
+        );
     }
+
+    jd
 }
 
 pub fn to_orbital_elements(
@@ -448,10 +475,19 @@ pub fn run_sgp4(
     }
 }
 
+pub(crate) fn datetime_to_gstime(d: DateTime<Utc>) -> c_double {
+    let jd = datetime_to_julian_day(d);
+    unsafe {
+        gstime(jd)
+    }
+}
+
 #[link(name = "sgp4", kind = "static")]
 #[allow(non_snake_case)]
 #[allow(dead_code)]
 extern "C" {
+    // Defined in sgp4unit.cpp
+
     fn sgp4init(
         whichconst: GravitationalConstant,
         opsmode: c_char,
@@ -489,6 +525,8 @@ extern "C" {
         j3oj2: &mut c_double,
     );
 
+    // Defined in sgp4io.cpp
+
     fn twoline2rv(
         longstr1: *const c_char,
         longstr2: *const c_char,
@@ -500,6 +538,59 @@ extern "C" {
         stopmfe: &mut c_double,
         deltamin: &mut c_double,
         satrec: &mut OrbitalElementSet,
+    );
+
+    // Defined in sgp4ext.cpp
+
+    fn sgn(x: c_double) -> c_double;
+
+    fn mag(x: *const c_double) -> c_double;
+
+    fn cross(v1: *const c_double, v2: *const c_double, out: *mut c_double);
+
+    fn dot(v1: *const c_double, v2: *const c_double) -> c_double;
+
+    fn angle(v1: *const c_double, v2: *const c_double) -> c_double;
+
+    fn newtonnu(ecc: c_double, nu: c_double, e0: &mut c_double, m: &mut c_double);
+
+    fn asinh(xval: c_double) -> c_double;
+
+    fn rv2coe(
+        r: *mut c_double, // [c_double; 3]
+        v: *mut c_double, // [c_double; 3]
+        mu: c_double,
+        p: &mut c_double,
+        a: &mut c_double,
+        ecc: &mut c_double,
+        incl: &mut c_double,
+        omega: &mut c_double,
+        argp: &mut c_double,
+        nu: &mut c_double,
+        m: &mut c_double,
+        arglat: &mut c_double,
+        truelon: &mut c_double,
+        lonper: &mut c_double,
+    );
+
+    fn jday(
+        year: c_int,
+        mon: c_int,
+        day: c_int,
+        hr: c_int,
+        minute: c_int,
+        sec: c_double,
+        jd: &mut c_double,
+    );
+
+    fn days2mdhms(
+        year: c_int,
+        days: c_double,
+        mon: &mut c_int,
+        day: &mut c_int,
+        hr: &mut c_int,
+        minute: &mut c_int,
+        sec: &mut c_double,
     );
 
     fn invjday(
