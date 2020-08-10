@@ -5,3 +5,16 @@
 This crate implements a wrapper around the SGP-4 orbital propagator as provided in the "Revisiting
 Spacetrack Report #3" paper ([link](https://celestrak.com/publications/AIAA/2006-6753/)). It
 provides high level bindings to the propagator library with a more modern interface.
+
+Our approach separates the low-level `unsafe` bindings into the `sgp4_sys` module, while safe
+functions are exported through the library's root module. Because the underlying SGP4 implementation
+is thread-safe, this crate can be used in multithreaded environments and with async/await code.
+
+We have not created bindings to every function in the library, especially as some of them are
+duplicative of Rust standard library functions. The core propagator functionality is exposed, and
+allows predicting an orbiting body's state vector at a given time from two line element data.
+
+## Building
+
+`sgp4` builds cleanly on the stable Rust channel, but does require a local C++ compiler to be
+present in order to build the wrapped SGP4 library.
