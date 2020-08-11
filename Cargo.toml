@@ -5,7 +5,10 @@ authors = ["Nick Pascucci <nick.pascucci@spire.com>"]
 edition = "2018"
 
 description = "Rust wrapper around the SGP-4 orbital propagator."
+keywords = ["sgp4", "orbital-mechanics", "two-line-element", "astrophysics"]
+categories = ["api-bindings", "science", "simulation"]
 readme = "README.md"
+license = "MIT"
 
 build = "build.rs"
 links = "static=sgp4"
