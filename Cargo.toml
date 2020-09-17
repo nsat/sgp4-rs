@@ -1,10 +1,10 @@
 [package]
-name = "sgp4"
+name = "sgp4-rs"
 version = "0.1.0"
 authors = ["Nick Pascucci <nick.pascucci@spire.com>"]
 edition = "2018"
 
-description = "Rust wrapper around the SGP-4 orbital propagator."
+description = "Rust wrapper around the Vallado SGP-4 orbital propagator."
 keywords = ["sgp4", "orbital-mechanics", "two-line-element", "astrophysics"]
 categories = ["api-bindings", "science", "simulation"]
 readme = "README.md"

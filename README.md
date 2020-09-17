@@ -1,10 +1,11 @@
-# SGP4
+# sgp4-rs
 
 [![CI Status](https://github.com/nsat/sgp4-rs/workflows/Rust/badge.svg)](https://github.com/nsat/sgp4-rs/actions)
 
-This crate implements a wrapper around the SGP-4 orbital propagator as provided in the "Revisiting
-Spacetrack Report #3" paper ([link](https://celestrak.com/publications/AIAA/2006-6753/)). It
-provides high level bindings to the propagator library with a more modern interface.
+This crate implements a wrapper around the C++ implementation of the SGP-4 orbital propagator as
+provided in the "Revisiting Spacetrack Report #3" paper
+([link](https://celestrak.com/publications/AIAA/2006-6753/)). It provides high level bindings to the
+propagator library with a more modern interface.
 
 Our approach separates the low-level `unsafe` bindings into the `sgp4_sys` module, while safe
 functions are exported through the library's root module. Because the underlying SGP4 implementation
@@ -18,3 +19,8 @@ allows predicting an orbiting body's state vector at a given time from two line 
 
 `sgp4` builds cleanly on the stable Rust channel, but does require a local C++ compiler to be
 present in order to build the wrapped SGP4 library.
+
+## Related
+
+The [`sgp4` crate](https://github.com/neuromorphicsystems/sgp4) is a pure Rust reimplementation of
+the Vallado library which this crate wraps.
