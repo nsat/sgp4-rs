@@ -1,6 +1,8 @@
 # sgp4-rs
 
 [![CI Status](https://github.com/nsat/sgp4-rs/workflows/Rust/badge.svg)](https://github.com/nsat/sgp4-rs/actions)
+[![Docs](https://docs.rs/sgp4-rs/badge.svg)](https://docs.rs/sgp4-rs/)
+[![Crate](https://img.shields.io/crates/v/sgp4-rs)](https://crates.io/crates/sgp4-rs)
 
 This crate implements a wrapper around the C++ implementation of the SGP-4 orbital propagator as
 provided in the "Revisiting Spacetrack Report #3" paper
