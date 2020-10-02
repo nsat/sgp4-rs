@@ -367,28 +367,27 @@ impl OrbitalElementSet {
 }
 
 pub(crate) fn julian_day_to_datetime(jd: c_double) -> DateTime<Utc> {
-        let mut year = c_int::default();
-        let mut month = c_int::default();
-        let mut day = c_int::default();
-        let mut hour = c_int::default();
-        let mut minute = c_int::default();
-        let mut second = c_double::default();
+    let mut year = c_int::default();
+    let mut month = c_int::default();
+    let mut day = c_int::default();
+    let mut hour = c_int::default();
+    let mut minute = c_int::default();
+    let mut second = c_double::default();
 
-        unsafe {
-            invjday(
-                jd,
-                &mut year,
-                &mut month,
-                &mut day,
-                &mut hour,
-                &mut minute,
-                &mut second,
-            );
-        }
+    unsafe {
+        invjday(
+            jd,
+            &mut year,
+            &mut month,
+            &mut day,
+            &mut hour,
+            &mut minute,
+            &mut second,
+        );
+    }
 
-        Utc.ymd(year, month as u32, day as u32)
-            .and_hms(hour as u32, minute as u32, second as u32)
-
+    Utc.ymd(year, month as u32, day as u32)
+        .and_hms(hour as u32, minute as u32, second as u32)
 }
 
 pub(crate) fn datetime_to_julian_day(d: DateTime<Utc>) -> c_double {
@@ -402,7 +401,7 @@ pub(crate) fn datetime_to_julian_day(d: DateTime<Utc>) -> c_double {
             d.hour() as c_int,
             d.minute() as c_int,
             d.second() as c_double,
-            &mut jd
+            &mut jd,
         );
     }
 
@@ -477,9 +476,7 @@ pub fn run_sgp4(
 
 pub(crate) fn datetime_to_gstime(d: DateTime<Utc>) -> c_double {
     let jd = datetime_to_julian_day(d);
-    unsafe {
-        gstime(jd)
-    }
+    unsafe { gstime(jd) }
 }
 
 #[link(name = "sgp4", kind = "static")]

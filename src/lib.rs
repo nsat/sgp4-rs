@@ -98,7 +98,6 @@ impl TwoLineElement {
         Ok(self.elements.epoch())
     }
 
-
     /// Propagate a TwoLineElement to the given time to obtain a state vector for the object.
     pub fn propagate_to(&self, t: DateTime<Utc>) -> Result<StateVector> {
         let tle_epoch = self.elements.epoch();
@@ -240,6 +239,9 @@ mod tests {
         let t = Utc.ymd(2020, 1, 1).and_hms(0, 0, 0);
         let a: f64 = 100.1218209532; // GMST for 2020-01-01T00:00:00 in degrees
         let a_rad = a.to_radians();
-        assert!(sgp4_sys::close(GreenwichMeanSiderealTime::from(t).as_radians(), a_rad));
+        assert!(sgp4_sys::close(
+            GreenwichMeanSiderealTime::from(t).as_radians(),
+            a_rad
+        ));
     }
 }
