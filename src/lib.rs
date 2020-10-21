@@ -163,6 +163,13 @@ mod tests {
     use super::*;
 
     use chrono::Duration;
+    use float_cmp::approx_eq;
+
+    fn vecs_eq(l: &[f64; 3], r: &[f64; 3]) -> bool {
+        approx_eq!(f64, l[0], r[0])
+        && approx_eq!(f64, l[1], r[1])
+        && approx_eq!(f64, l[2], r[2])
+    }
 
     #[test]
     fn test_simple_propagation() -> Result<()> {
@@ -175,8 +182,8 @@ mod tests {
         let s1 = tle.propagate_to(epoch)?;
         let s2 = tle.propagate_to(epoch + Duration::hours(1))?;
 
-        assert_ne!(s1.position, s2.position);
-        assert_ne!(s1.velocity, s2.velocity);
+        assert!(!vecs_eq(&s1.position, &s2.position));
+        assert!(!vecs_eq(&s1.velocity, &s2.velocity));
 
         Ok(())
     }
@@ -192,8 +199,9 @@ mod tests {
         let s1 = tle.propagate_to(epoch)?;
         let s2 = tle.propagate_to(epoch - Duration::days(30))?;
 
-        assert_ne!(s1.position, s2.position);
-        assert_ne!(s1.velocity, s2.velocity);
+
+        assert!(!vecs_eq(&s1.position, &s2.position));
+        assert!(!vecs_eq(&s1.velocity, &s2.velocity));
 
         Ok(())
     }
