@@ -4,9 +4,7 @@
 //! rely heavily on `unsafe` code, and it is recommended to instead use the other, high level
 //! bindings provided by the `sgp4` crate.
 
-extern crate libc;
-
-use libc::{c_char, c_double, c_int, c_long};
+use std::os::raw::{c_char, c_double, c_int, c_long};
 use std::ffi::{CString, NulError};
 
 use chrono::prelude::*;

@@ -15,9 +15,7 @@ build = "build.rs"
 links = "static=sgp4"
 
 [dependencies]
-chrono = { version="0.4" }
-time = "0.2.16"
-libc = "0.2.71"
+chrono = { version="0.4", default-features=false }
 thiserror = "1.0"
 
 [build-dependencies]
