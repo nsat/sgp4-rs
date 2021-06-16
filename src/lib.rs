@@ -1,7 +1,8 @@
 use chrono::prelude::*;
 use chrono::DateTime;
-
+use sgp4_sys::ClassicalOrbitalElements;
 use thiserror::Error;
+use uom::si::{angle::radian, f64::*, length::kilometer};
 
 mod sgp4_sys;
 
@@ -30,10 +31,75 @@ pub struct StateVector {
 
     /// The satellite velocity in km/s.
     pub velocity: [f64; 3],
+
+    coe: ClassicalOrbitalElements,
+}
+
+impl StateVector {
+    fn new(epoch: DateTime<Utc>, position: [f64; 3], velocity: [f64; 3]) -> Self {
+        Self {
+            epoch,
+            position,
+            velocity,
+            coe: sgp4_sys::to_classical_elements(&position, &velocity),
+        }
+    }
+
+    pub fn semilatus_rectum(&self) -> Length {
+        Length::new::<kilometer>(self.coe.p)
+    }
+
+    pub fn semimajor_axis(&self) -> Length {
+        Length::new::<kilometer>(self.coe.a)
+    }
+
+    pub fn inclination(&self) -> Angle {
+        Angle::new::<radian>(self.coe.incl)
+    }
+
+    pub fn raan(&self) -> Angle {
+        Angle::new::<radian>(self.coe.omega)
+    }
+
+    pub fn mean_anomaly(&self) -> Angle {
+        Angle::new::<radian>(self.coe.m)
+    }
+
+    pub fn true_anomaly(&self) -> Angle {
+        Angle::new::<radian>(self.coe.nu)
+    }
+
+    pub fn eccentricity(&self) -> f64 {
+        self.coe.ecc
+    }
+
+    pub fn longitude_of_periapsis(&self) -> Angle {
+        Angle::new::<radian>(self.coe.lonper)
+    }
+
+    pub fn true_longitude(&self) -> Angle {
+        Angle::new::<radian>(self.coe.truelon)
+    }
+
+    pub fn argument_of_perigee(&self) -> Angle {
+        Angle::new::<radian>(self.coe.argp)
+    }
+
+    pub fn argument_of_latitude(&self) -> Angle {
+        Angle::new::<radian>(self.coe.arglat)
+    }
 }
 
 const TLE_LINE_LENGTH: usize = 69;
 
+/// A parsed, valid Two Line Element data set which can be used for orbital propagation.
+///
+/// Internally this uses SGP4's own structure representation. Various fields which are useful for
+/// analysis or simulation are exposed via methods like `raan()`/`set_raan()`
+/// which allow access to the values and direct modification of the underlying orbital element set
+/// in a type-safe manner. The `uom` crate provides dimensional analysis to help avoid
+/// unit-of-measure errors which can otherwise be quite difficult to detect.
+#[derive(Clone)]
 pub struct TwoLineElement {
     elements: sgp4_sys::OrbitalElementSet,
 }
@@ -113,11 +179,7 @@ impl TwoLineElement {
         )
         .map_err(|_e| Error::PropagationError)?;
 
-        Ok(StateVector {
-            epoch: t,
-            position: r.to_owned(),
-            velocity: v.to_owned(),
-        })
+        Ok(StateVector::new(t, r.to_owned(), v.to_owned()))
     }
 }
 

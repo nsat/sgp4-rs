@@ -13,7 +13,7 @@ use chrono::DateTime;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum Error {
+pub(crate) enum Error {
     #[error(transparent)]
     CStringNulError(#[from] NulError),
     #[error("Failed to convert two-line element to orbital element set")]
@@ -23,7 +23,7 @@ pub enum Error {
 }
 
 #[allow(dead_code)]
-pub enum RunType {
+pub(crate) enum RunType {
     Verification,
     Catalog,
     Manual(InputType),
@@ -57,7 +57,7 @@ impl Default for RunType {
 }
 
 #[allow(dead_code)]
-pub enum InputType {
+pub(crate) enum InputType {
     Epoch,
     MinutesFromEpoch,
     DayOfYear,
@@ -75,7 +75,7 @@ impl InputType {
 }
 
 #[allow(dead_code)]
-pub enum OperationMode {
+pub(crate) enum OperationMode {
     AirForceSpaceCenter,
     Improved,
 }
@@ -102,7 +102,7 @@ const EPSILON: f64 = 0.000_000_1;
 #[repr(C)]
 #[allow(dead_code, non_camel_case_types)]
 #[derive(Copy, Clone, Debug)]
-pub enum GravitationalConstant {
+pub(crate) enum GravitationalConstant {
     Wgs72Old,
     Wgs72,
     Wgs84,
@@ -111,14 +111,16 @@ pub enum GravitationalConstant {
 #[repr(C)]
 #[allow(dead_code)]
 #[derive(Default, Clone, Copy, Debug)]
-pub struct OrbitalElementSet {
-    satnum: c_long,
-    epochyr: c_int,
+pub(crate) struct OrbitalElementSet {
+    catalog_number: c_long, // satnum
+    epoch_year: c_int,      // epochyr
+
+    // Unused?
     epochtynumrev: c_int,
 
     error: c_int,
 
-    operationmode: c_char,
+    operation_mode: c_char,
     init: c_char,
     method: c_char,
 
@@ -217,30 +219,32 @@ pub struct OrbitalElementSet {
     xli: c_double,
     xni: c_double,
 
-    a: c_double,
-    altp: c_double,
-    alta: c_double,
-    epochdays: c_double,
-    jdsatepoch: c_double,
-    nddot: c_double,
-    ndot: c_double,
+    // The following fields are used in TLEs and provide the "classical" orbital elements.
+    pub(crate) semi_major_axis: c_double,       // a
+    pub(crate) altitude_of_periapsis: c_double, // altp
+    pub(crate) altitude_of_apoapsis: c_double,  // alta
+
+    epoch_days: c_double,                    // epochdays
+    julian_date_at_epoch: c_double,          // jdsatepoch
+    mean_motion_second_derivative: c_double, // nddot
+    mean_motion_first_derivative: c_double,  // ndot
 
     // SGP4-type drag coefficient
     bstar: c_double,
 
-    rcse: c_double,
+    revolution_count_at_epoch: c_double, // rcse
     // Inclination
-    inclo: c_double,
+    pub(crate) inclination: c_double, // inclo
     // Right ascension of the ascending node
-    nodeo: c_double,
+    pub(crate) raan: c_double, // nodeo
     // Eccentricity
-    ecco: c_double,
+    pub(crate) eccentricity: c_double, // ecco
     // Argument of perigee
-    argpo: c_double,
+    pub(crate) argument_of_perigee: c_double, // argpo
     // Mean anomaly
-    mo: c_double,
+    pub(crate) mean_anomaly: c_double, // mo
 
-    no: c_double,
+    pub(crate) mean_motion: c_double, // no
 }
 
 /// Determine if two C doubles are "close", as defined by the EPSILON constant.
@@ -251,11 +255,11 @@ pub(crate) fn close(a: c_double, b: c_double) -> bool {
 
 impl PartialEq for OrbitalElementSet {
     fn eq(&self, other: &Self) -> bool {
-        self.satnum == other.satnum
-            && self.epochyr == other.epochyr
+        self.catalog_number == other.catalog_number
+            && self.epoch_year == other.epoch_year
             && self.epochtynumrev == other.epochtynumrev
             && self.error == other.error
-            && self.operationmode == other.operationmode
+            && self.operation_mode == other.operation_mode
             && self.init == other.init
             && self.method == other.method
             && self.isimp == other.isimp
@@ -340,27 +344,36 @@ impl PartialEq for OrbitalElementSet {
             && close(self.atime, other.atime)
             && close(self.xli, other.xli)
             && close(self.xni, other.xni)
-            && close(self.a, other.a)
-            && close(self.altp, other.altp)
-            && close(self.alta, other.alta)
-            && close(self.epochdays, other.epochdays)
-            && close(self.jdsatepoch, other.jdsatepoch)
-            && close(self.nddot, other.nddot)
-            && close(self.ndot, other.ndot)
+            && close(self.semi_major_axis, other.semi_major_axis)
+            && close(self.altitude_of_periapsis, other.altitude_of_periapsis)
+            && close(self.altitude_of_apoapsis, other.altitude_of_apoapsis)
+            && close(self.epoch_days, other.epoch_days)
+            && close(self.julian_date_at_epoch, other.julian_date_at_epoch)
+            && close(
+                self.mean_motion_second_derivative,
+                other.mean_motion_second_derivative,
+            )
+            && close(
+                self.mean_motion_first_derivative,
+                other.mean_motion_first_derivative,
+            )
             && close(self.bstar, other.bstar)
-            && close(self.rcse, other.rcse)
-            && close(self.inclo, other.inclo)
-            && close(self.nodeo, other.nodeo)
-            && close(self.ecco, other.ecco)
-            && close(self.argpo, other.argpo)
-            && close(self.mo, other.mo)
-            && close(self.no, other.no)
+            && close(
+                self.revolution_count_at_epoch,
+                other.revolution_count_at_epoch,
+            )
+            && close(self.inclination, other.inclination)
+            && close(self.raan, other.raan)
+            && close(self.eccentricity, other.eccentricity)
+            && close(self.argument_of_perigee, other.argument_of_perigee)
+            && close(self.mean_anomaly, other.mean_anomaly)
+            && close(self.mean_motion, other.mean_motion)
     }
 }
 
 impl OrbitalElementSet {
     pub fn epoch(&self) -> DateTime<Utc> {
-        julian_day_to_datetime(self.jdsatepoch)
+        julian_day_to_datetime(self.julian_date_at_epoch)
     }
 }
 
@@ -406,7 +419,7 @@ pub(crate) fn datetime_to_julian_day(d: DateTime<Utc>) -> c_double {
     jd
 }
 
-pub fn to_orbital_elements(
+pub(crate) fn to_orbital_elements(
     line1: &str,
     line2: &str,
     rt: RunType,
@@ -443,17 +456,18 @@ pub fn to_orbital_elements(
     }
 }
 
-type VectorPair = ([c_double; 3], [c_double; 3]);
+type Vec3 = [c_double; 3];
+type VectorPair = (Vec3, Vec3);
 
-pub fn run_sgp4(
+pub(crate) fn run_sgp4(
     satrec: OrbitalElementSet,
     gc: GravitationalConstant,
     min_since_epoch: f64,
 ) -> Result<VectorPair, Error> {
     let mut satrec_copy = satrec.to_owned();
 
-    let mut ro: [c_double; 3] = [0.; 3];
-    let mut vo: [c_double; 3] = [0.; 3];
+    let mut ro: Vec3 = [0.; 3];
+    let mut vo: Vec3 = [0.; 3];
 
     let success = unsafe {
         sgp4(
@@ -469,6 +483,88 @@ pub fn run_sgp4(
         Err(Error::Sgp4)
     } else {
         Ok((ro, vo))
+    }
+}
+
+#[derive(Debug)]
+pub(crate) struct ClassicalOrbitalElements {
+    pub p: c_double,       // semilatus rectum               km
+    pub a: c_double,       // semimajor axis                 km
+    pub ecc: c_double,     // eccentricity
+    pub incl: c_double,    // inclination                    0.0  to pi rad
+    pub omega: c_double,   // longitude of ascending node    0.0  to 2pi rad
+    pub argp: c_double,    // argument of perigee            0.0  to 2pi rad
+    pub nu: c_double,      // true anomaly                   0.0  to 2pi rad
+    pub m: c_double,       // mean anomaly                   0.0  to 2pi rad
+    pub arglat: c_double,  // argument of latitude      (ci) 0.0  to 2pi rad
+    pub truelon: c_double, // true longitude            (ce) 0.0  to 2pi rad
+    pub lonper: c_double,  // longitude of periapsis    (ee) 0.0  to 2pi rad
+}
+
+pub(crate) fn to_classical_elements(r: &Vec3, v: &Vec3) -> ClassicalOrbitalElements {
+    let mut tumin: c_double = 0.0;
+    let mut mu: c_double = 0.0;
+    let mut radiusearthkm: c_double = 0.0;
+    let mut xke: c_double = 0.0;
+    let mut j2: c_double = 0.0;
+    let mut j3: c_double = 0.0;
+    let mut j4: c_double = 0.0;
+    let mut j3oj2: c_double = 0.0;
+
+    let mut p: c_double = 0.0;
+    let mut a: c_double = 0.0;
+    let mut ecc: c_double = 0.0;
+    let mut incl: c_double = 0.0;
+    let mut omega: c_double = 0.0;
+    let mut argp: c_double = 0.0;
+    let mut nu: c_double = 0.0;
+    let mut m: c_double = 0.0;
+    let mut arglat: c_double = 0.0;
+    let mut truelon: c_double = 0.0;
+    let mut lonper: c_double = 0.0;
+
+    unsafe {
+        getgravconst(
+            GravitationalConstant::Wgs84,
+            &mut tumin,
+            &mut mu,
+            &mut radiusearthkm,
+            &mut xke,
+            &mut j2,
+            &mut j3,
+            &mut j4,
+            &mut j3oj2,
+        );
+        rv2coe(
+            r.as_ptr(),
+            v.as_ptr(),
+            mu,
+            &mut p,
+            &mut a,
+            &mut ecc,
+            &mut incl,
+            &mut omega,
+            &mut argp,
+            &mut nu,
+            &mut m,
+            &mut arglat,
+            &mut truelon,
+            &mut lonper,
+        );
+    }
+
+    ClassicalOrbitalElements {
+        p,
+        a,
+        ecc,
+        incl,
+        omega,
+        argp,
+        nu,
+        m,
+        arglat,
+        truelon,
+        lonper,
     }
 }
 
@@ -552,8 +648,8 @@ extern "C" {
     fn asinh(xval: c_double) -> c_double;
 
     fn rv2coe(
-        r: *mut c_double, // [c_double; 3]
-        v: *mut c_double, // [c_double; 3]
+        r: *const c_double, // [c_double; 3]
+        v: *const c_double, // [c_double; 3]
         mu: c_double,
         p: &mut c_double,
         a: &mut c_double,
