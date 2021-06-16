@@ -13,7 +13,7 @@ use chrono::DateTime;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum Error {
+pub(crate) enum Error {
     #[error(transparent)]
     CStringNulError(#[from] NulError),
     #[error("Failed to convert two-line element to orbital element set")]
@@ -23,7 +23,7 @@ pub enum Error {
 }
 
 #[allow(dead_code)]
-pub enum RunType {
+pub(crate) enum RunType {
     Verification,
     Catalog,
     Manual(InputType),
@@ -57,7 +57,7 @@ impl Default for RunType {
 }
 
 #[allow(dead_code)]
-pub enum InputType {
+pub(crate) enum InputType {
     Epoch,
     MinutesFromEpoch,
     DayOfYear,
@@ -75,7 +75,7 @@ impl InputType {
 }
 
 #[allow(dead_code)]
-pub enum OperationMode {
+pub(crate) enum OperationMode {
     AirForceSpaceCenter,
     Improved,
 }
@@ -102,7 +102,7 @@ const EPSILON: f64 = 0.000_000_1;
 #[repr(C)]
 #[allow(dead_code, non_camel_case_types)]
 #[derive(Copy, Clone, Debug)]
-pub enum GravitationalConstant {
+pub(crate) enum GravitationalConstant {
     Wgs72Old,
     Wgs72,
     Wgs84,
@@ -111,7 +111,7 @@ pub enum GravitationalConstant {
 #[repr(C)]
 #[allow(dead_code)]
 #[derive(Default, Clone, Copy, Debug)]
-pub struct OrbitalElementSet {
+pub(crate) struct OrbitalElementSet {
     catalog_number: c_long, // satnum
     epoch_year: c_int,      // epochyr
 
@@ -419,7 +419,7 @@ pub(crate) fn datetime_to_julian_day(d: DateTime<Utc>) -> c_double {
     jd
 }
 
-pub fn to_orbital_elements(
+pub(crate) fn to_orbital_elements(
     line1: &str,
     line2: &str,
     rt: RunType,
@@ -459,7 +459,7 @@ pub fn to_orbital_elements(
 type Vec3 = [c_double; 3];
 type VectorPair = (Vec3, Vec3);
 
-pub fn run_sgp4(
+pub(crate) fn run_sgp4(
     satrec: OrbitalElementSet,
     gc: GravitationalConstant,
     min_since_epoch: f64,
@@ -487,7 +487,7 @@ pub fn run_sgp4(
 }
 
 #[derive(Debug)]
-pub struct ClassicalOrbitalElements {
+pub(crate) struct ClassicalOrbitalElements {
     pub p: c_double,       // semilatus rectum               km
     pub a: c_double,       // semimajor axis                 km
     pub ecc: c_double,     // eccentricity
@@ -501,7 +501,7 @@ pub struct ClassicalOrbitalElements {
     pub lonper: c_double,  // longitude of periapsis    (ee) 0.0  to 2pi rad
 }
 
-pub fn to_classical_elements(r: &Vec3, v: &Vec3) -> ClassicalOrbitalElements {
+pub(crate) fn to_classical_elements(r: &Vec3, v: &Vec3) -> ClassicalOrbitalElements {
     let mut tumin: c_double = 0.0;
     let mut mu: c_double = 0.0;
     let mut radiusearthkm: c_double = 0.0;
