@@ -36,7 +36,7 @@ pub struct StateVector {
 }
 
 impl StateVector {
-    fn new(epoch: DateTime<Utc>, position: [f64; 3], velocity: [f64; 3]) -> Self {
+    pub fn new(epoch: DateTime<Utc>, position: [f64; 3], velocity: [f64; 3]) -> Self {
         Self {
             epoch,
             position,
