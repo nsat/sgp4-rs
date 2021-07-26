@@ -23,4 +23,4 @@ uom = "0.31.1"
 cc = "1.0"
 
 [dev-dependencies]
-float-cmp = "0.8"
+float-cmp = "0.9"
