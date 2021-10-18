@@ -1,6 +1,5 @@
 use chrono::prelude::*;
 use chrono::DateTime;
-use sgp4_sys::ClassicalOrbitalElements;
 use thiserror::Error;
 use uom::si::{angle::radian, f64::*, length::kilometer};
 
@@ -22,7 +21,7 @@ type Result<T> = std::result::Result<T, Error>;
 ///
 /// To obtain the state of an object at a specific time, use the propagation functions provided by
 /// [TwoLineElement].
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct StateVector {
     pub epoch: DateTime<Utc>,
 
@@ -32,7 +31,7 @@ pub struct StateVector {
     /// The satellite velocity in km/s.
     pub velocity: [f64; 3],
 
-    coe: ClassicalOrbitalElements,
+    pub coe: ClassicalOrbitalElements,
 }
 
 impl StateVector {
@@ -41,52 +40,108 @@ impl StateVector {
             epoch,
             position,
             velocity,
-            coe: sgp4_sys::to_classical_elements(&position, &velocity),
+            coe: sgp4_sys::to_classical_elements(&position, &velocity).into(),
         }
     }
 
     pub fn semilatus_rectum(&self) -> Length {
-        Length::new::<kilometer>(self.coe.p)
+        self.coe.semilatus_rectum
     }
 
     pub fn semimajor_axis(&self) -> Length {
-        Length::new::<kilometer>(self.coe.a)
+        self.coe.semimajor_axis
     }
 
     pub fn inclination(&self) -> Angle {
-        Angle::new::<radian>(self.coe.incl)
+        self.coe.inclination
     }
 
     pub fn raan(&self) -> Angle {
-        Angle::new::<radian>(self.coe.omega)
+        self.coe.raan
     }
 
     pub fn mean_anomaly(&self) -> Angle {
-        Angle::new::<radian>(self.coe.m)
+        self.coe.mean_anomaly
     }
 
     pub fn true_anomaly(&self) -> Angle {
-        Angle::new::<radian>(self.coe.nu)
+        self.coe.true_anomaly
     }
 
     pub fn eccentricity(&self) -> f64 {
-        self.coe.ecc
+        self.coe.eccentricity
     }
 
     pub fn longitude_of_periapsis(&self) -> Angle {
-        Angle::new::<radian>(self.coe.lonper)
+        self.coe.longitude_of_periapsis
     }
 
     pub fn true_longitude(&self) -> Angle {
-        Angle::new::<radian>(self.coe.truelon)
+        self.coe.true_longitude
     }
 
     pub fn argument_of_perigee(&self) -> Angle {
-        Angle::new::<radian>(self.coe.argp)
+        self.coe.argument_of_perigee
     }
 
     pub fn argument_of_latitude(&self) -> Angle {
-        Angle::new::<radian>(self.coe.arglat)
+        self.coe.argument_of_latitude
+    }
+}
+
+/// A Keplerian orbital element set.
+///
+/// This structure contains all of the "classical" orbital elements as derivable from a TLE. We
+/// lean on the `uom` crate to provide safe dimensional types which help to avoid bugs related to
+/// mixing units of measure.
+#[derive(Debug, Clone, Copy)]
+pub struct ClassicalOrbitalElements {
+    pub semilatus_rectum: Length,
+    pub semimajor_axis: Length,
+    pub eccentricity: f64,
+    pub inclination: Angle,
+    pub raan: Angle,
+    pub argument_of_perigee: Angle,
+    pub true_anomaly: Angle,
+    pub mean_anomaly: Angle,
+    pub argument_of_latitude: Angle,
+    pub true_longitude: Angle,
+    pub longitude_of_periapsis: Angle,
+}
+
+impl From<sgp4_sys::ClassicalOrbitalElements> for ClassicalOrbitalElements {
+    fn from(coe: sgp4_sys::ClassicalOrbitalElements) -> Self {
+        let semilatus_rectum = Length::new::<kilometer>(coe.p);
+        let semimajor_axis = Length::new::<kilometer>(coe.a);
+        let inclination = Angle::new::<radian>(coe.incl);
+        let raan = Angle::new::<radian>(coe.omega);
+        let mean_anomaly = Angle::new::<radian>(coe.m);
+        let true_anomaly = Angle::new::<radian>(coe.nu);
+        let eccentricity = coe.ecc;
+        let longitude_of_periapsis = Angle::new::<radian>(coe.lonper);
+        let true_longitude = Angle::new::<radian>(coe.truelon);
+        let argument_of_perigee = Angle::new::<radian>(coe.argp);
+        let argument_of_latitude = Angle::new::<radian>(coe.arglat);
+
+        Self {
+            semilatus_rectum,
+            semimajor_axis,
+            eccentricity,
+            inclination,
+            raan,
+            argument_of_perigee,
+            true_anomaly,
+            mean_anomaly,
+            argument_of_latitude,
+            true_longitude,
+            longitude_of_periapsis,
+        }
+    }
+}
+
+impl From<StateVector> for ClassicalOrbitalElements {
+    fn from(sv: StateVector) -> Self {
+        sv.coe.clone()
     }
 }
 
