@@ -94,7 +94,7 @@ impl StateVector {
 /// This structure contains all of the "classical" orbital elements as derivable from a TLE. We
 /// lean on the `uom` crate to provide safe dimensional types which help to avoid bugs related to
 /// mixing units of measure.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct ClassicalOrbitalElements {
     pub semilatus_rectum: Length,
     pub semimajor_axis: Length,
@@ -142,6 +142,12 @@ impl From<sgp4_sys::ClassicalOrbitalElements> for ClassicalOrbitalElements {
 impl From<StateVector> for ClassicalOrbitalElements {
     fn from(sv: StateVector) -> Self {
         sv.coe.clone()
+    }
+}
+
+impl ClassicalOrbitalElements {
+    fn as_tle_at(&self, epoch: DateTime<Utc>) -> String {
+        "".to_string()
     }
 }
 
@@ -365,5 +371,27 @@ mod tests {
             GreenwichMeanSiderealTime::from(t).as_radians(),
             a_rad
         ));
+    }
+
+    #[test]
+    fn test_can_roundtrip_conversion_of_classical_elements_to_tle() -> Result<()> {
+        let epoch = Utc.ymd(2020, 01, 01).and_hms(00, 00, 00);
+        let coe = ClassicalOrbitalElements {
+            semilatus_rectum: Length::new::<kilometer>(5_000.0),
+            semimajor_axis: Length::new::<kilometer>(10_000.0),
+            eccentricity: 0.0,
+            inclination: Angle::new::<radian>(0.0),
+            raan: Angle::new::<radian>(0.0),
+            argument_of_perigee: Angle::new::<radian>(0.0),
+            true_anomaly: Angle::new::<radian>(0.0),
+            mean_anomaly: Angle::new::<radian>(0.0),
+            argument_of_latitude: Angle::new::<radian>(0.0),
+            true_longitude: Angle::new::<radian>(0.0),
+            longitude_of_periapsis: Angle::new::<radian>(0.0),
+        };
+        let tle = coe.as_tle_at(epoch);
+        let sv = TwoLineElement::from_lines(&tle)?.propagate_to(epoch)?;
+        assert_eq!(ClassicalOrbitalElements::from(sv), coe);
+        Ok(())
     }
 }
