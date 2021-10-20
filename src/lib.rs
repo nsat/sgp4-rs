@@ -1,9 +1,14 @@
+use std::f64::consts::PI;
+
 use chrono::prelude::*;
 use chrono::DateTime;
 use thiserror::Error;
+use uom::si::angle::degree;
 use uom::si::{angle::radian, f64::*, length::kilometer};
 
 mod sgp4_sys;
+
+const SECONDS_PER_DAY: f64 = 24.0 * 60.0 * 60.0;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -146,8 +151,78 @@ impl From<StateVector> for ClassicalOrbitalElements {
 }
 
 impl ClassicalOrbitalElements {
-    fn as_tle_at(&self, epoch: DateTime<Utc>) -> String {
-        "".to_string()
+    /// Create a formatted Two Line Element string from a Keplerian orbital element set for testing
+    /// purposes.
+    ///
+    /// Note that the generated TLE has the following simplifications:
+    /// 1. It assumes that the epoch and the launch date are the same.
+    /// 2. Launch number is assumed to be 1, and the launch piece is A.
+    /// 3. Element set number is always 1.
+    /// 4. Mean motion derivatives and ballistic coefficient are set to zero.
+    /// 5. The orbit number is assumed to be zero.
+    ///
+    /// Because of these simplifications, the elements of the generated TLE are not guaranteed to
+    /// exactly match those of the original element set. This function should not be used for
+    /// production applications.
+    pub fn as_tle_at(&self, catalog_num: u8, epoch: DateTime<Utc>) -> String {
+        format!(
+            "{}\n{}",
+            self.tle_line_1(catalog_num, epoch),
+            self.tle_line_2(catalog_num)
+        )
+    }
+
+    fn tle_line_1(&self, catalog_num: u8, epoch: DateTime<Utc>) -> String {
+        let epoch_year = epoch.year() % 100;
+        let epoch_day = epoch.ordinal();
+        let epoch_day_fraction = epoch.num_seconds_from_midnight() as f64 / SECONDS_PER_DAY;
+        let line = format!(
+            "1 {0:05}U {1:2}001A   {1:2}{2:3}.{3:0>8}  .00000000  00000-0  00000-0 0    1",
+            // |-----| |---------| |---||---| |-----| |--------| |------| |------| ^ |--|
+            // 3-8     10-17       19      23 25-32   34-43      45-52    54-61      65 68
+            catalog_num,
+            epoch_year,
+            epoch_day,
+            epoch_day_fraction * 10e8
+        );
+        Self::add_checksum(line)
+    }
+
+    fn tle_line_2(&self, catalog_num: u8) -> String {
+        // TODO get these from COE
+        let incl = self.inclination.get::<degree>();
+        let raan = self.raan.get::<degree>();
+        let ecc = self.eccentricity;
+        let argp = self.argument_of_perigee.get::<degree>();
+        let ma = self.mean_anomaly.get::<degree>();
+        let consts = sgp4_sys::gravitational_constants();
+        let mm = SECONDS_PER_DAY
+            / ((2.0 * PI) * (self.semimajor_axis.get::<kilometer>().powi(3) / consts.mu).sqrt());
+        let line = format!(
+            "2 {0:05} {1:>8.4} {2:>8.4} {3:0>7} {4:>8.4} {5:>8.4} {6:>11.8}00001",
+            // |----| |------| |------| |-----| |------| |------| |-------||---|
+            // 3-7    9-16     18-25    27-33   35-42    44-51    53-63    64-68
+            catalog_num,
+            incl,
+            raan,
+            ecc * 10e7,
+            argp,
+            ma,
+            mm
+        );
+        Self::add_checksum(line)
+    }
+
+    fn add_checksum(mut line: String) -> String {
+        let checksum = line.chars().fold(0, |acc, c| {
+            acc + match c {
+                '-' => 1,
+                c if c.is_digit(10) => c.to_digit(10).unwrap(),
+                _ => 0,
+            }
+        }) % 10;
+        line.push_str(&checksum.to_string());
+        line
     }
 }
 
@@ -173,17 +248,19 @@ impl TwoLineElement {
 
         if line1.len() != TLE_LINE_LENGTH {
             return Err(Error::MalformedTwoLineElement(format!(
-                "Line 1 is the wrong length. Expected {}, but got {}",
+                "Line 1 is the wrong length. Expected {}, but got {}\n{}",
                 TLE_LINE_LENGTH,
-                line1.len()
+                line1.len(),
+                line1
             )));
         }
 
         if line2.len() != TLE_LINE_LENGTH {
             return Err(Error::MalformedTwoLineElement(format!(
-                "Line 2 is the wrong length. Expected {}, but got {}",
+                "Line 2 is the wrong length. Expected {}, but got {}\n{}",
                 TLE_LINE_LENGTH,
-                line2.len()
+                line2.len(),
+                line2
             )));
         }
 
@@ -194,7 +271,7 @@ impl TwoLineElement {
             sgp4_sys::OperationMode::Improved,
             sgp4_sys::GravitationalConstant::Wgs84,
         )
-        .map_err(|e| Error::MalformedTwoLineElement(format!("{:?}", e)))?;
+        .map_err(|e| Error::MalformedTwoLineElement(format!("{}", e)))?;
 
         Ok(TwoLineElement { elements })
     }
@@ -286,7 +363,7 @@ mod tests {
     use super::*;
 
     use chrono::Duration;
-    use float_cmp::approx_eq;
+    use float_cmp::{approx_eq, assert_approx_eq};
 
     fn vecs_eq(l: &[f64; 3], r: &[f64; 3]) -> bool {
         approx_eq!(f64, l[0], r[0]) && approx_eq!(f64, l[1], r[1]) && approx_eq!(f64, l[2], r[2])
@@ -347,7 +424,7 @@ mod tests {
 
     #[test]
     fn test_tle_from_lines_with_surrounding_whitespace() -> Result<()> {
-        let lines = "\nISS (ZARYA)
+        let lines = "\nISS (ZARYA
                      1 25544U 98067A   20148.21301450  .00001715  00000-0  38778-4 0  9992
                      2 25544  51.6435  92.2789 0002570 358.0648 144.9972 15.49396855228767\n";
 
@@ -376,22 +453,32 @@ mod tests {
     #[test]
     fn test_can_roundtrip_conversion_of_classical_elements_to_tle() -> Result<()> {
         let epoch = Utc.ymd(2020, 01, 01).and_hms(00, 00, 00);
+        let altitude_km = 408.0;
+        let earth_radius_km = 6371.0;
         let coe = ClassicalOrbitalElements {
-            semilatus_rectum: Length::new::<kilometer>(5_000.0),
-            semimajor_axis: Length::new::<kilometer>(10_000.0),
+            semilatus_rectum: Length::new::<kilometer>(altitude_km + earth_radius_km),
+            semimajor_axis: Length::new::<kilometer>(altitude_km + earth_radius_km),
             eccentricity: 0.0,
-            inclination: Angle::new::<radian>(0.0),
-            raan: Angle::new::<radian>(0.0),
-            argument_of_perigee: Angle::new::<radian>(0.0),
-            true_anomaly: Angle::new::<radian>(0.0),
-            mean_anomaly: Angle::new::<radian>(0.0),
-            argument_of_latitude: Angle::new::<radian>(0.0),
-            true_longitude: Angle::new::<radian>(0.0),
-            longitude_of_periapsis: Angle::new::<radian>(0.0),
+            inclination: Angle::new::<degree>(10.0),
+            raan: Angle::new::<degree>(25.0),
+            argument_of_perigee: Angle::new::<degree>(0.0),
+            true_anomaly: Angle::new::<degree>(0.0),
+            mean_anomaly: Angle::new::<degree>(0.0),
+            argument_of_latitude: Angle::new::<degree>(0.0),
+            true_longitude: Angle::new::<degree>(0.0),
+            longitude_of_periapsis: Angle::new::<degree>(0.0),
         };
-        let tle = coe.as_tle_at(epoch);
+        let tle = coe.as_tle_at(0, epoch);
+        println!("Generated TLE:\n{}", tle);
         let sv = TwoLineElement::from_lines(&tle)?.propagate_to(epoch)?;
-        assert_eq!(ClassicalOrbitalElements::from(sv), coe);
+        let new_coe = ClassicalOrbitalElements::from(sv);
+        assert_approx_eq!(
+            f64,
+            new_coe.semimajor_axis.get::<kilometer>(),
+            coe.semimajor_axis.get::<kilometer>(),
+            epsilon = 10.0
+        );
+        assert_approx_eq!(f64, new_coe.eccentricity, coe.eccentricity, epsilon = 0.01);
         Ok(())
     }
 }
