@@ -425,7 +425,7 @@ mod tests {
 
     #[test]
     fn test_tle_from_lines_with_surrounding_whitespace() -> Result<()> {
-        let lines = "\nISS (ZARYA
+        let lines = "\nISS (ZARYA)
                      1 25544U 98067A   20148.21301450  .00001715  00000-0  38778-4 0  9992
                      2 25544  51.6435  92.2789 0002570 358.0648 144.9972 15.49396855228767\n";
 
