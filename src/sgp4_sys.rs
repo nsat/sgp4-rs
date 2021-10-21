@@ -452,9 +452,13 @@ pub(crate) fn to_orbital_elements(
     match satrec.error {
         0 => Ok(satrec),
         // TODO Expand this match to include specific error conditions
-        1 => Err(Error::TwoLine2Rv("Eccentricity out of bounds for mean elements")),
+        1 => Err(Error::TwoLine2Rv(
+            "Eccentricity out of bounds for mean elements",
+        )),
         2 => Err(Error::TwoLine2Rv("Mean motion must be positive")),
-        3 => Err(Error::TwoLine2Rv("Eccentricity out of bounds for pert elements")),
+        3 => Err(Error::TwoLine2Rv(
+            "Eccentricity out of bounds for pert elements",
+        )),
         4 => Err(Error::TwoLine2Rv("Semi-latus rectum must be positive")),
         5 => Err(Error::TwoLine2Rv("Epoch elements are sub-orbital")),
         6 => Err(Error::TwoLine2Rv("Satellite has decayed")),
