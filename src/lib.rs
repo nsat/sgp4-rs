@@ -190,7 +190,6 @@ impl ClassicalOrbitalElements {
     fn tle_line_2(&self, catalog_num: u8) -> String {
         use std::f64::consts::PI;
 
-        // TODO get these from COE
         let incl = self.inclination.get::<angle::degree>();
         let raan = self.raan.get::<angle::degree>();
         let ecc = self.eccentricity;
