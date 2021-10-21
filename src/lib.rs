@@ -1,14 +1,9 @@
-use std::f64::consts::PI;
-
 use chrono::prelude::*;
 use chrono::DateTime;
 use thiserror::Error;
-use uom::si::angle::degree;
-use uom::si::{angle::radian, f64::*, length::kilometer};
+use uom::si::{angle, f64::*, length::kilometer};
 
 mod sgp4_sys;
-
-const SECONDS_PER_DAY: f64 = 24.0 * 60.0 * 60.0;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -118,15 +113,15 @@ impl From<sgp4_sys::ClassicalOrbitalElements> for ClassicalOrbitalElements {
     fn from(coe: sgp4_sys::ClassicalOrbitalElements) -> Self {
         let semilatus_rectum = Length::new::<kilometer>(coe.p);
         let semimajor_axis = Length::new::<kilometer>(coe.a);
-        let inclination = Angle::new::<radian>(coe.incl);
-        let raan = Angle::new::<radian>(coe.omega);
-        let mean_anomaly = Angle::new::<radian>(coe.m);
-        let true_anomaly = Angle::new::<radian>(coe.nu);
+        let inclination = Angle::new::<angle::radian>(coe.incl);
+        let raan = Angle::new::<angle::radian>(coe.omega);
+        let mean_anomaly = Angle::new::<angle::radian>(coe.m);
+        let true_anomaly = Angle::new::<angle::radian>(coe.nu);
         let eccentricity = coe.ecc;
-        let longitude_of_periapsis = Angle::new::<radian>(coe.lonper);
-        let true_longitude = Angle::new::<radian>(coe.truelon);
-        let argument_of_perigee = Angle::new::<radian>(coe.argp);
-        let argument_of_latitude = Angle::new::<radian>(coe.arglat);
+        let longitude_of_periapsis = Angle::new::<angle::radian>(coe.lonper);
+        let true_longitude = Angle::new::<angle::radian>(coe.truelon);
+        let argument_of_perigee = Angle::new::<angle::radian>(coe.argp);
+        let argument_of_latitude = Angle::new::<angle::radian>(coe.arglat);
 
         Self {
             semilatus_rectum,
@@ -150,7 +145,10 @@ impl From<StateVector> for ClassicalOrbitalElements {
     }
 }
 
+#[cfg(feature = "tlegen")]
 impl ClassicalOrbitalElements {
+    const SECONDS_PER_DAY: f64 = 24.0 * 60.0 * 60.0;
+
     /// Create a formatted Two Line Element string from a Keplerian orbital element set for testing
     /// purposes.
     ///
@@ -172,10 +170,11 @@ impl ClassicalOrbitalElements {
         )
     }
 
+    #[cfg(feature = "tlegen")]
     fn tle_line_1(&self, catalog_num: u8, epoch: DateTime<Utc>) -> String {
         let epoch_year = epoch.year() % 100;
         let epoch_day = epoch.ordinal();
-        let epoch_day_fraction = epoch.num_seconds_from_midnight() as f64 / SECONDS_PER_DAY;
+        let epoch_day_fraction = epoch.num_seconds_from_midnight() as f64 / Self::SECONDS_PER_DAY;
         let line = format!(
             "1 {0:05}U {1:2}001A   {1:2}{2:3}.{3:0>8}  .00000000  00000-0  00000-0 0    1",
             // |-----| |---------| |---||---| |-----| |--------| |------| |------| ^ |--|
@@ -185,18 +184,20 @@ impl ClassicalOrbitalElements {
             epoch_day,
             epoch_day_fraction * 10e8
         );
-        Self::add_checksum(line)
+        Self::add_tle_checksum(line)
     }
 
     fn tle_line_2(&self, catalog_num: u8) -> String {
+        use std::f64::consts::PI;
+
         // TODO get these from COE
-        let incl = self.inclination.get::<degree>();
-        let raan = self.raan.get::<degree>();
+        let incl = self.inclination.get::<angle::degree>();
+        let raan = self.raan.get::<angle::degree>();
         let ecc = self.eccentricity;
-        let argp = self.argument_of_perigee.get::<degree>();
-        let ma = self.mean_anomaly.get::<degree>();
+        let argp = self.argument_of_perigee.get::<angle::degree>();
+        let ma = self.mean_anomaly.get::<angle::degree>();
         let consts = sgp4_sys::gravitational_constants();
-        let mm = SECONDS_PER_DAY
+        let mm = Self::SECONDS_PER_DAY
             / ((2.0 * PI) * (self.semimajor_axis.get::<kilometer>().powi(3) / consts.mu).sqrt());
         let line = format!(
             "2 {0:05} {1:>8.4} {2:>8.4} {3:0>7} {4:>8.4} {5:>8.4} {6:>11.8}00001",
@@ -210,10 +211,10 @@ impl ClassicalOrbitalElements {
             ma,
             mm
         );
-        Self::add_checksum(line)
+        Self::add_tle_checksum(line)
     }
 
-    fn add_checksum(mut line: String) -> String {
+    fn add_tle_checksum(mut line: String) -> String {
         let checksum = line.chars().fold(0, |acc, c| {
             acc + match c {
                 '-' => 1,
@@ -363,7 +364,7 @@ mod tests {
     use super::*;
 
     use chrono::Duration;
-    use float_cmp::{approx_eq, assert_approx_eq};
+    use float_cmp::approx_eq;
 
     fn vecs_eq(l: &[f64; 3], r: &[f64; 3]) -> bool {
         approx_eq!(f64, l[0], r[0]) && approx_eq!(f64, l[1], r[1]) && approx_eq!(f64, l[2], r[2])
@@ -451,7 +452,10 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "tlegen")]
     fn test_can_roundtrip_conversion_of_classical_elements_to_tle() -> Result<()> {
+        use float_cmp::assert_approx_eq;
+
         let epoch = Utc.ymd(2020, 01, 01).and_hms(00, 00, 00);
         let altitude_km = 408.0;
         let earth_radius_km = 6371.0;
@@ -459,14 +463,14 @@ mod tests {
             semilatus_rectum: Length::new::<kilometer>(altitude_km + earth_radius_km),
             semimajor_axis: Length::new::<kilometer>(altitude_km + earth_radius_km),
             eccentricity: 0.0,
-            inclination: Angle::new::<degree>(10.0),
-            raan: Angle::new::<degree>(25.0),
-            argument_of_perigee: Angle::new::<degree>(0.0),
-            true_anomaly: Angle::new::<degree>(0.0),
-            mean_anomaly: Angle::new::<degree>(0.0),
-            argument_of_latitude: Angle::new::<degree>(0.0),
-            true_longitude: Angle::new::<degree>(0.0),
-            longitude_of_periapsis: Angle::new::<degree>(0.0),
+            inclination: Angle::new::<angle::degree>(10.0),
+            raan: Angle::new::<angle::degree>(25.0),
+            argument_of_perigee: Angle::new::<angle::degree>(0.0),
+            true_anomaly: Angle::new::<angle::degree>(0.0),
+            mean_anomaly: Angle::new::<angle::degree>(0.0),
+            argument_of_latitude: Angle::new::<angle::degree>(0.0),
+            true_longitude: Angle::new::<angle::degree>(0.0),
+            longitude_of_periapsis: Angle::new::<angle::degree>(0.0),
         };
         let tle = coe.as_tle_at(0, epoch);
         println!("Generated TLE:\n{}", tle);
