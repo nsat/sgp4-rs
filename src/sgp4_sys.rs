@@ -15,7 +15,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub(crate) enum Error {
     #[error(transparent)]
-    CStringNulError(#[from] NulError),
+    CStringNul(#[from] NulError),
     #[error("Failed to convert two-line element to orbital element set: {0}")]
     TwoLine2Rv(&'static str),
     #[error("Failure in SGP4 propagator")]
@@ -507,6 +507,7 @@ pub(crate) struct ClassicalOrbitalElements {
     pub lonper: c_double,  // longitude of periapsis    (ee) 0.0  to 2pi rad
 }
 
+#[allow(clippy::many_single_char_names)]
 pub(crate) fn to_classical_elements(r: &Vec3, v: &Vec3) -> ClassicalOrbitalElements {
     let grav_consts = gravitational_constants();
 

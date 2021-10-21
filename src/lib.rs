@@ -146,7 +146,7 @@ impl From<sgp4_sys::ClassicalOrbitalElements> for ClassicalOrbitalElements {
 
 impl From<StateVector> for ClassicalOrbitalElements {
     fn from(sv: StateVector) -> Self {
-        sv.coe.clone()
+        sv.coe
     }
 }
 
@@ -294,7 +294,7 @@ impl TwoLineElement {
                 )));
             }
         };
-        TwoLineElement::new(&lines[0], &lines[1])
+        TwoLineElement::new(lines[0], lines[1])
     }
 
     /// Get the epoch of a TwoLineElement.
