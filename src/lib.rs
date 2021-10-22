@@ -271,7 +271,7 @@ impl TwoLineElement {
             sgp4_sys::OperationMode::Improved,
             sgp4_sys::GravitationalConstant::Wgs84,
         )
-        .map_err(|e| Error::MalformedTwoLineElement(format!("{}", e)))?;
+        .map_err(|e| Error::MalformedTwoLineElement(e.to_string()))?;
 
         Ok(TwoLineElement { elements })
     }
@@ -455,7 +455,7 @@ mod tests {
     fn test_can_roundtrip_conversion_of_classical_elements_to_tle() -> Result<()> {
         use float_cmp::assert_approx_eq;
 
-        let epoch = Utc.ymd(2020, 01, 01).and_hms(00, 00, 00);
+        let epoch = Utc.ymd(2020, 1, 1).and_hms(0, 0, 0);
         let altitude_km = 408.0;
         let earth_radius_km = 6371.0;
         let coe = ClassicalOrbitalElements {
