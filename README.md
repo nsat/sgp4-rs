@@ -22,6 +22,12 @@ allows predicting an orbiting body's state vector at a given time from two line 
 `sgp4` builds cleanly on the stable Rust channel, but does require a local C++ compiler to be
 present in order to build the wrapped SGP4 library.
 
+## Experimental Features
+
+The `tlegen` feature adds basic support for creating custom TLEs from a set of orbital elements.
+This feature is subject to several important caveats, so it is not enabled by default. See the
+`ClassicalOrbitalElements` documentation for details.
+
 ## Related
 
 The [`sgp4` crate](https://github.com/neuromorphicsystems/sgp4) is a pure Rust reimplementation of

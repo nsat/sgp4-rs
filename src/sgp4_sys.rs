@@ -15,9 +15,9 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub(crate) enum Error {
     #[error(transparent)]
-    CStringNulError(#[from] NulError),
-    #[error("Failed to convert two-line element to orbital element set")]
-    TwoLine2Rv,
+    CStringNul(#[from] NulError),
+    #[error("Failed to convert two-line element to orbital element set: {0}")]
+    TwoLine2Rv(&'static str),
     #[error("Failure in SGP4 propagator")]
     Sgp4,
 }
@@ -452,7 +452,17 @@ pub(crate) fn to_orbital_elements(
     match satrec.error {
         0 => Ok(satrec),
         // TODO Expand this match to include specific error conditions
-        _ => Err(Error::TwoLine2Rv),
+        1 => Err(Error::TwoLine2Rv(
+            "Eccentricity out of bounds for mean elements",
+        )),
+        2 => Err(Error::TwoLine2Rv("Mean motion must be positive")),
+        3 => Err(Error::TwoLine2Rv(
+            "Eccentricity out of bounds for pert elements",
+        )),
+        4 => Err(Error::TwoLine2Rv("Semi-latus rectum must be positive")),
+        5 => Err(Error::TwoLine2Rv("Epoch elements are sub-orbital")),
+        6 => Err(Error::TwoLine2Rv("Satellite has decayed")),
+        _ => Err(Error::TwoLine2Rv("Unknown error code")),
     }
 }
 
@@ -501,15 +511,9 @@ pub(crate) struct ClassicalOrbitalElements {
     pub lonper: c_double,  // longitude of periapsis    (ee) 0.0  to 2pi rad
 }
 
+#[allow(clippy::many_single_char_names)]
 pub(crate) fn to_classical_elements(r: &Vec3, v: &Vec3) -> ClassicalOrbitalElements {
-    let mut tumin: c_double = 0.0;
-    let mut mu: c_double = 0.0;
-    let mut radiusearthkm: c_double = 0.0;
-    let mut xke: c_double = 0.0;
-    let mut j2: c_double = 0.0;
-    let mut j3: c_double = 0.0;
-    let mut j4: c_double = 0.0;
-    let mut j3oj2: c_double = 0.0;
+    let grav_consts = gravitational_constants();
 
     let mut p: c_double = 0.0;
     let mut a: c_double = 0.0;
@@ -524,21 +528,10 @@ pub(crate) fn to_classical_elements(r: &Vec3, v: &Vec3) -> ClassicalOrbitalEleme
     let mut lonper: c_double = 0.0;
 
     unsafe {
-        getgravconst(
-            GravitationalConstant::Wgs84,
-            &mut tumin,
-            &mut mu,
-            &mut radiusearthkm,
-            &mut xke,
-            &mut j2,
-            &mut j3,
-            &mut j4,
-            &mut j3oj2,
-        );
         rv2coe(
             r.as_ptr(),
             v.as_ptr(),
-            mu,
+            grav_consts.mu,
             &mut p,
             &mut a,
             &mut ecc,
@@ -571,6 +564,45 @@ pub(crate) fn to_classical_elements(r: &Vec3, v: &Vec3) -> ClassicalOrbitalEleme
 pub(crate) fn datetime_to_gstime(d: DateTime<Utc>) -> c_double {
     let jd = datetime_to_julian_day(d);
     unsafe { gstime(jd) }
+}
+
+pub(crate) struct GravitationalConstants {
+    pub tumin: c_double,
+    pub mu: c_double,
+    pub radiusearthkm: c_double,
+    pub xke: c_double,
+    pub j2: c_double,
+    pub j3: c_double,
+    pub j4: c_double,
+    pub j3oj2: c_double,
+}
+
+pub(crate) fn gravitational_constants() -> GravitationalConstants {
+    let mut consts = GravitationalConstants {
+        tumin: 0.0,
+        mu: 0.0,
+        radiusearthkm: 0.0,
+        xke: 0.0,
+        j2: 0.0,
+        j3: 0.0,
+        j4: 0.0,
+        j3oj2: 0.0,
+    };
+    unsafe {
+        getgravconst(
+            GravitationalConstant::Wgs84,
+            &mut consts.tumin,
+            &mut consts.mu,
+            &mut consts.radiusearthkm,
+            &mut consts.xke,
+            &mut consts.j2,
+            &mut consts.j3,
+            &mut consts.j4,
+            &mut consts.j3oj2,
+        );
+    }
+
+    consts
 }
 
 #[link(name = "sgp4", kind = "static")]

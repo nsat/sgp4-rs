@@ -1,8 +1,7 @@
 use chrono::prelude::*;
 use chrono::DateTime;
-use sgp4_sys::ClassicalOrbitalElements;
 use thiserror::Error;
-use uom::si::{angle::radian, f64::*, length::kilometer};
+use uom::si::{angle, f64::*, length::kilometer};
 
 mod sgp4_sys;
 
@@ -22,7 +21,7 @@ type Result<T> = std::result::Result<T, Error>;
 ///
 /// To obtain the state of an object at a specific time, use the propagation functions provided by
 /// [TwoLineElement].
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct StateVector {
     pub epoch: DateTime<Utc>,
 
@@ -32,7 +31,7 @@ pub struct StateVector {
     /// The satellite velocity in km/s.
     pub velocity: [f64; 3],
 
-    coe: ClassicalOrbitalElements,
+    pub coe: ClassicalOrbitalElements,
 }
 
 impl StateVector {
@@ -41,52 +40,189 @@ impl StateVector {
             epoch,
             position,
             velocity,
-            coe: sgp4_sys::to_classical_elements(&position, &velocity),
+            coe: sgp4_sys::to_classical_elements(&position, &velocity).into(),
         }
     }
 
     pub fn semilatus_rectum(&self) -> Length {
-        Length::new::<kilometer>(self.coe.p)
+        self.coe.semilatus_rectum
     }
 
     pub fn semimajor_axis(&self) -> Length {
-        Length::new::<kilometer>(self.coe.a)
+        self.coe.semimajor_axis
     }
 
     pub fn inclination(&self) -> Angle {
-        Angle::new::<radian>(self.coe.incl)
+        self.coe.inclination
     }
 
     pub fn raan(&self) -> Angle {
-        Angle::new::<radian>(self.coe.omega)
+        self.coe.raan
     }
 
     pub fn mean_anomaly(&self) -> Angle {
-        Angle::new::<radian>(self.coe.m)
+        self.coe.mean_anomaly
     }
 
     pub fn true_anomaly(&self) -> Angle {
-        Angle::new::<radian>(self.coe.nu)
+        self.coe.true_anomaly
     }
 
     pub fn eccentricity(&self) -> f64 {
-        self.coe.ecc
+        self.coe.eccentricity
     }
 
     pub fn longitude_of_periapsis(&self) -> Angle {
-        Angle::new::<radian>(self.coe.lonper)
+        self.coe.longitude_of_periapsis
     }
 
     pub fn true_longitude(&self) -> Angle {
-        Angle::new::<radian>(self.coe.truelon)
+        self.coe.true_longitude
     }
 
     pub fn argument_of_perigee(&self) -> Angle {
-        Angle::new::<radian>(self.coe.argp)
+        self.coe.argument_of_perigee
     }
 
     pub fn argument_of_latitude(&self) -> Angle {
-        Angle::new::<radian>(self.coe.arglat)
+        self.coe.argument_of_latitude
+    }
+}
+
+/// A Keplerian orbital element set.
+///
+/// This structure contains all of the "classical" orbital elements as derivable from a TLE. We
+/// lean on the `uom` crate to provide safe dimensional types which help to avoid bugs related to
+/// mixing units of measure.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ClassicalOrbitalElements {
+    pub semilatus_rectum: Length,
+    pub semimajor_axis: Length,
+    pub eccentricity: f64,
+    pub inclination: Angle,
+    pub raan: Angle,
+    pub argument_of_perigee: Angle,
+    pub true_anomaly: Angle,
+    pub mean_anomaly: Angle,
+    pub argument_of_latitude: Angle,
+    pub true_longitude: Angle,
+    pub longitude_of_periapsis: Angle,
+}
+
+impl From<sgp4_sys::ClassicalOrbitalElements> for ClassicalOrbitalElements {
+    fn from(coe: sgp4_sys::ClassicalOrbitalElements) -> Self {
+        let semilatus_rectum = Length::new::<kilometer>(coe.p);
+        let semimajor_axis = Length::new::<kilometer>(coe.a);
+        let inclination = Angle::new::<angle::radian>(coe.incl);
+        let raan = Angle::new::<angle::radian>(coe.omega);
+        let mean_anomaly = Angle::new::<angle::radian>(coe.m);
+        let true_anomaly = Angle::new::<angle::radian>(coe.nu);
+        let eccentricity = coe.ecc;
+        let longitude_of_periapsis = Angle::new::<angle::radian>(coe.lonper);
+        let true_longitude = Angle::new::<angle::radian>(coe.truelon);
+        let argument_of_perigee = Angle::new::<angle::radian>(coe.argp);
+        let argument_of_latitude = Angle::new::<angle::radian>(coe.arglat);
+
+        Self {
+            semilatus_rectum,
+            semimajor_axis,
+            eccentricity,
+            inclination,
+            raan,
+            argument_of_perigee,
+            true_anomaly,
+            mean_anomaly,
+            argument_of_latitude,
+            true_longitude,
+            longitude_of_periapsis,
+        }
+    }
+}
+
+impl From<StateVector> for ClassicalOrbitalElements {
+    fn from(sv: StateVector) -> Self {
+        sv.coe
+    }
+}
+
+#[cfg(feature = "tlegen")]
+impl ClassicalOrbitalElements {
+    const SECONDS_PER_DAY: f64 = 24.0 * 60.0 * 60.0;
+
+    /// Create a formatted Two Line Element string from a Keplerian orbital element set for testing
+    /// purposes.
+    ///
+    /// Note that the generated TLE has the following simplifications:
+    /// 1. It assumes that the epoch and the launch date are the same.
+    /// 2. Launch number is assumed to be 1, and the launch piece is A.
+    /// 3. Element set number is always 1.
+    /// 4. Mean motion derivatives and ballistic coefficient are set to zero.
+    /// 5. The orbit number is assumed to be zero.
+    ///
+    /// Because of these simplifications, the elements of the generated TLE are not guaranteed to
+    /// exactly match those of the original element set. This function should not be used for
+    /// production applications.
+    pub fn as_tle_at(&self, catalog_num: u8, epoch: DateTime<Utc>) -> String {
+        format!(
+            "{}\n{}",
+            self.tle_line_1(catalog_num, epoch),
+            self.tle_line_2(catalog_num)
+        )
+    }
+
+    #[cfg(feature = "tlegen")]
+    fn tle_line_1(&self, catalog_num: u8, epoch: DateTime<Utc>) -> String {
+        let epoch_year = epoch.year() % 100;
+        let epoch_day = epoch.ordinal();
+        let epoch_day_fraction = epoch.num_seconds_from_midnight() as f64 / Self::SECONDS_PER_DAY;
+        let line = format!(
+            "1 {0:05}U {1:2}001A   {1:2}{2:3}.{3:0>8}  .00000000  00000-0  00000-0 0    1",
+            // |-----| |---------| |---||---| |-----| |--------| |------| |------| ^ |--|
+            // 3-8     10-17       19      23 25-32   34-43      45-52    54-61      65 68
+            catalog_num,
+            epoch_year,
+            epoch_day,
+            epoch_day_fraction * 10e8
+        );
+        Self::add_tle_checksum(line)
+    }
+
+    fn tle_line_2(&self, catalog_num: u8) -> String {
+        use std::f64::consts::PI;
+
+        let incl = self.inclination.get::<angle::degree>();
+        let raan = self.raan.get::<angle::degree>();
+        let ecc = self.eccentricity;
+        let argp = self.argument_of_perigee.get::<angle::degree>();
+        let ma = self.mean_anomaly.get::<angle::degree>();
+        let consts = sgp4_sys::gravitational_constants();
+        let mm = Self::SECONDS_PER_DAY
+            / ((2.0 * PI) * (self.semimajor_axis.get::<kilometer>().powi(3) / consts.mu).sqrt());
+        let line = format!(
+            "2 {0:05} {1:>8.4} {2:>8.4} {3:0>7} {4:>8.4} {5:>8.4} {6:>11.8}00001",
+            // |----| |------| |------| |-----| |------| |------| |-------||---|
+            // 3-7    9-16     18-25    27-33   35-42    44-51    53-63    64-68
+            catalog_num,
+            incl,
+            raan,
+            ecc * 10e7,
+            argp,
+            ma,
+            mm
+        );
+        Self::add_tle_checksum(line)
+    }
+
+    fn add_tle_checksum(mut line: String) -> String {
+        let checksum = line.chars().fold(0, |acc, c| {
+            acc + match c {
+                '-' => 1,
+                c if c.is_digit(10) => c.to_digit(10).unwrap(),
+                _ => 0,
+            }
+        }) % 10;
+        line.push_str(&checksum.to_string());
+        line
     }
 }
 
@@ -112,17 +248,19 @@ impl TwoLineElement {
 
         if line1.len() != TLE_LINE_LENGTH {
             return Err(Error::MalformedTwoLineElement(format!(
-                "Line 1 is the wrong length. Expected {}, but got {}",
+                "Line 1 is the wrong length. Expected {}, but got {}\n{}",
                 TLE_LINE_LENGTH,
-                line1.len()
+                line1.len(),
+                line1
             )));
         }
 
         if line2.len() != TLE_LINE_LENGTH {
             return Err(Error::MalformedTwoLineElement(format!(
-                "Line 2 is the wrong length. Expected {}, but got {}",
+                "Line 2 is the wrong length. Expected {}, but got {}\n{}",
                 TLE_LINE_LENGTH,
-                line2.len()
+                line2.len(),
+                line2
             )));
         }
 
@@ -133,7 +271,7 @@ impl TwoLineElement {
             sgp4_sys::OperationMode::Improved,
             sgp4_sys::GravitationalConstant::Wgs84,
         )
-        .map_err(|e| Error::MalformedTwoLineElement(format!("{:?}", e)))?;
+        .map_err(|e| Error::MalformedTwoLineElement(e.to_string()))?;
 
         Ok(TwoLineElement { elements })
     }
@@ -156,7 +294,7 @@ impl TwoLineElement {
                 )));
             }
         };
-        TwoLineElement::new(&lines[0], &lines[1])
+        TwoLineElement::new(lines[0], lines[1])
     }
 
     /// Get the epoch of a TwoLineElement.
@@ -310,5 +448,40 @@ mod tests {
             GreenwichMeanSiderealTime::from(t).as_radians(),
             a_rad
         ));
+    }
+
+    #[test]
+    #[cfg(feature = "tlegen")]
+    fn test_can_roundtrip_conversion_of_classical_elements_to_tle() -> Result<()> {
+        use float_cmp::assert_approx_eq;
+
+        let epoch = Utc.ymd(2020, 1, 1).and_hms(0, 0, 0);
+        let altitude_km = 408.0;
+        let earth_radius_km = 6371.0;
+        let coe = ClassicalOrbitalElements {
+            semilatus_rectum: Length::new::<kilometer>(altitude_km + earth_radius_km),
+            semimajor_axis: Length::new::<kilometer>(altitude_km + earth_radius_km),
+            eccentricity: 0.0,
+            inclination: Angle::new::<angle::degree>(10.0),
+            raan: Angle::new::<angle::degree>(25.0),
+            argument_of_perigee: Angle::new::<angle::degree>(0.0),
+            true_anomaly: Angle::new::<angle::degree>(0.0),
+            mean_anomaly: Angle::new::<angle::degree>(0.0),
+            argument_of_latitude: Angle::new::<angle::degree>(0.0),
+            true_longitude: Angle::new::<angle::degree>(0.0),
+            longitude_of_periapsis: Angle::new::<angle::degree>(0.0),
+        };
+        let tle = coe.as_tle_at(0, epoch);
+        println!("Generated TLE:\n{}", tle);
+        let sv = TwoLineElement::from_lines(&tle)?.propagate_to(epoch)?;
+        let new_coe = ClassicalOrbitalElements::from(sv);
+        assert_approx_eq!(
+            f64,
+            new_coe.semimajor_axis.get::<kilometer>(),
+            coe.semimajor_axis.get::<kilometer>(),
+            epsilon = 10.0
+        );
+        assert_approx_eq!(f64, new_coe.eccentricity, coe.eccentricity, epsilon = 0.01);
+        Ok(())
     }
 }
