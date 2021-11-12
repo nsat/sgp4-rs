@@ -2,7 +2,7 @@
 name = "sgp4-rs"
 version = "0.3.2"
 authors = ["Nick Pascucci <nick.pascucci@spire.com>"]
-edition = "2018"
+edition = "2021"
 
 description = "Rust wrapper around the Vallado SGP-4 orbital propagator."
 repository = "https://github.com/nsat/sgp4-rs"
