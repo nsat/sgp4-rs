@@ -302,7 +302,9 @@ impl TwoLineElement {
         Ok(self.elements.epoch())
     }
 
-    pub fn mean_motion(&self) -> f64 {self.elements.mean_motion()}
+    pub fn mean_motion(&self) -> f64 {
+        self.elements.mean_motion()
+    }
 
     /// Propagate a TwoLineElement to the given time to obtain a state vector for the object.
     pub fn propagate_to(&self, t: DateTime<Utc>) -> Result<StateVector> {
