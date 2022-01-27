@@ -376,7 +376,7 @@ impl OrbitalElementSet {
         julian_day_to_datetime(self.julian_date_at_epoch)
     }
 
-    pub fn mean_motion(&self) -> f64 {
+    pub(crate) fn mean_motion(&self) -> f64 {
         self.mean_motion as _
     }
 }

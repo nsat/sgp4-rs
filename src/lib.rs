@@ -1,7 +1,7 @@
 use chrono::prelude::*;
 use chrono::DateTime;
 use thiserror::Error;
-use uom::si::{angle, f64::*, length::kilometer};
+use uom::si::{angle, f64::*, length::kilometer, time};
 
 mod sgp4_sys;
 
@@ -302,8 +302,10 @@ impl TwoLineElement {
         Ok(self.elements.epoch())
     }
 
-    pub fn mean_motion(&self) -> f64 {
-        self.elements.mean_motion()
+    pub fn mean_motion(&self) -> AngularVelocity {
+        (Angle::new::<angle::degree>(self.elements.mean_motion() * 360.)
+            / Time::new::<time::day>(1.))
+        .into()
     }
 
     /// Propagate a TwoLineElement to the given time to obtain a state vector for the object.
