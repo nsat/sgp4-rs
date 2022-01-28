@@ -375,6 +375,10 @@ impl OrbitalElementSet {
     pub fn epoch(&self) -> DateTime<Utc> {
         julian_day_to_datetime(self.julian_date_at_epoch)
     }
+
+    pub(crate) fn mean_motion(&self) -> f64 {
+        self.mean_motion as _
+    }
 }
 
 pub(crate) fn julian_day_to_datetime(jd: c_double) -> DateTime<Utc> {
