@@ -1,7 +1,7 @@
 use chrono::prelude::*;
 use chrono::DateTime;
 use thiserror::Error;
-use uom::si::{angle, angular_velocity::radian_per_second, f64::*, length::kilometer, time};
+use uom::si::{angle, angular_velocity::radian_per_second, f64::*, length::kilometer};
 
 mod sgp4_sys;
 
@@ -395,9 +395,8 @@ mod tests {
         let line1 = "1 25544U 98067A   20148.21301450  .00001715  00000-0  38778-4 0  9992";
         let line2 = "2 25544  51.6435  92.2789 0002570 358.0648 144.9972 15.49396855228767";
         let tle = TwoLineElement::new(line1, line2)?;
-        let mean_motion = tle.mean_motion().get::<radian_per_second>() * 24.0 * 60.0 * 60.0
+        let mean_motion = tle.mean_motion().get::<radian_per_second>() * 24. * 60.0 * 60.0
             / (2. * std::f64::consts::PI);
-        println!("{}", mean_motion);
         assert!(approx_eq!(f64, mean_motion, 15.493968, epsilon = 0.01));
         Ok(())
     }
