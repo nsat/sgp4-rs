@@ -877,16 +877,16 @@ mod tests {
 
         // Propagate out 60 minutes.
         let mut satrec_copy = satrec.to_owned();
-            unsafe {
-                sgp4(
-                    whichconst,
-                    &mut satrec_copy,
-                    10000.,
-                    ro.as_mut_ptr(),
-                    vo.as_mut_ptr(),
-                );
-            }
-            assert_eq!(satrec_copy.error, 6)
+        unsafe {
+            sgp4(
+                whichconst,
+                &mut satrec_copy,
+                10000.,
+                ro.as_mut_ptr(),
+                vo.as_mut_ptr(),
+            );
+        }
+        assert_eq!(satrec_copy.error, 6)
     }
 
     #[test]

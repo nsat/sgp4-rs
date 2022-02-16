@@ -390,7 +390,7 @@ mod tests {
     }
 
     #[test]
-    fn test_decay_error() -> Result<()>{
+    fn test_decay_error() -> Result<()> {
         let line1 = "1 43051U 17071Q   22046.92182028  .07161566  12340-4  74927-3 0  9993";
         let line2 = "2 43051  51.6207 236.5853 0009084 284.2762  75.7254 16.36736354237455";
         let tle = TwoLineElement::new(line1, line2)?;
@@ -398,7 +398,10 @@ mod tests {
 
         let s2 = tle.propagate_to(epoch + Duration::days(30));
         assert!(s2.is_err());
-        assert_eq!(s2.unwrap_err(), Error::PropagationError(sgp4_sys::Error::SatelliteDecay));
+        assert_eq!(
+            s2.unwrap_err(),
+            Error::PropagationError(sgp4_sys::Error::SatelliteDecay)
+        );
         Ok(())
     }
 
