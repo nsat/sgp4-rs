@@ -5,14 +5,14 @@ use uom::si::{angle, angular_velocity::radian_per_second, f64::*, length::kilome
 
 mod sgp4_sys;
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq)]
 pub enum Error {
     #[error("TLE was malformed: {0}")]
     MalformedTwoLineElement(String),
-    #[error("Error in SGP4 propagator")]
-    PropagationError,
     #[error("{0}")]
     UnknownError(String),
+    #[error(transparent)]
+    PropagationError(#[from] sgp4_sys::Error),
 }
 
 type Result<T> = std::result::Result<T, Error>;
@@ -318,8 +318,7 @@ impl TwoLineElement {
             self.elements,
             sgp4_sys::GravitationalConstant::Wgs84,
             min_since_epoch,
-        )
-        .map_err(|_e| Error::PropagationError)?;
+        )?;
 
         Ok(StateVector::new(t, r.to_owned(), v.to_owned()))
     }
@@ -387,6 +386,19 @@ mod tests {
         assert!(!vecs_eq(&s1.position, &s2.position));
         assert!(!vecs_eq(&s1.velocity, &s2.velocity));
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_decay_error() -> Result<()>{
+        let line1 = "1 43051U 17071Q   22046.92182028  .07161566  12340-4  74927-3 0  9993";
+        let line2 = "2 43051  51.6207 236.5853 0009084 284.2762  75.7254 16.36736354237455";
+        let tle = TwoLineElement::new(line1, line2)?;
+        let epoch = tle.epoch()?;
+
+        let s2 = tle.propagate_to(epoch + Duration::days(30));
+        assert!(s2.is_err());
+        assert_eq!(s2.unwrap_err(), Error::PropagationError(sgp4_sys::Error::SatelliteDecay));
         Ok(())
     }
 
