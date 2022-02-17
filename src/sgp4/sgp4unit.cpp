@@ -1731,15 +1731,6 @@ bool sgp4(gravconsttype whichconst, elsetrec &satrec, double tsince,
   nm = xke / pow(am, 1.5);
   em = em - tempe;
 
-  // fix tolerance for error recognition
-  // sgp4fix am is fixed from the previous nm check
-  if ((em >= 1.0) || (em < -0.001) /* || (am < 0.95)*/) {
-    //         printf("# error em %f\n", em);
-    satrec.error = 1;
-    // sgp4fix to return if there is an error in eccentricity
-    return false;
-  }
-  // sgp4fix fix tolerance to avoid a divide by zero
   if (em < 1.0e-6)
     em = 1.0e-6;
   mm = mm + satrec.no * templ;
@@ -1893,6 +1884,15 @@ bool sgp4(gravconsttype whichconst, elsetrec &satrec, double tsince,
     satrec.error = 6;
     return false;
   }
+
+   // fix tolerance for error recognition
+  // sgp4fix am is fixed from the previous nm check
+  if ((em >= 1.0) || (em < -0.001) /* || (am < 0.95)*/) {
+    satrec.error = 1;
+    // sgp4fix to return if there is an error in eccentricity
+    return false;
+  }
+  // sgp4fix fix tolerance to avoid a divide by zero
 
   //#include "debug7.cpp"
   return true;

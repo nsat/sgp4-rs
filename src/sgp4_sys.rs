@@ -12,14 +12,24 @@ use chrono::DateTime;
 
 use thiserror::Error;
 
-#[derive(Debug, Error)]
-pub(crate) enum Error {
+#[derive(Debug, Error, PartialEq)]
+pub enum Error {
     #[error(transparent)]
     CStringNul(#[from] NulError),
-    #[error("Failed to convert two-line element to orbital element set: {0}")]
-    TwoLine2Rv(&'static str),
-    #[error("Failure in SGP4 propagator")]
-    Sgp4,
+    #[error("Unknown failure in SGP4 propagator")]
+    Unknown,
+    #[error("Eccentricity out of bounds for mean elements")]
+    InvalidEccentricity,
+    #[error("Mean motion must be positive")]
+    NegativeMeanMotion,
+    #[error("Eccentricity out of bounds for pert elements")]
+    PertEccentricity,
+    #[error("Semi-latus rectum must be positive")]
+    NegativeSemiLatus,
+    #[error("Epoch elements are sub-orbital")]
+    SubOrbital,
+    #[error("Satellite has decayed")]
+    SatelliteDecay,
 }
 
 #[allow(dead_code)]
@@ -379,6 +389,19 @@ impl OrbitalElementSet {
     pub(crate) fn mean_motion(&self) -> f64 {
         self.mean_motion as _
     }
+
+    pub(crate) fn into_validated_result(self) -> Result<OrbitalElementSet, Error> {
+        match self.error {
+            0 => Ok(self),
+            1 => Err(Error::InvalidEccentricity),
+            2 => Err(Error::NegativeMeanMotion),
+            3 => Err(Error::PertEccentricity),
+            4 => Err(Error::NegativeSemiLatus),
+            5 => Err(Error::SubOrbital),
+            6 => Err(Error::SatelliteDecay),
+            _ => Err(Error::Unknown),
+        }
+    }
 }
 
 pub(crate) fn julian_day_to_datetime(jd: c_double) -> DateTime<Utc> {
@@ -453,21 +476,7 @@ pub(crate) fn to_orbital_elements(
         )
     };
 
-    match satrec.error {
-        0 => Ok(satrec),
-        // TODO Expand this match to include specific error conditions
-        1 => Err(Error::TwoLine2Rv(
-            "Eccentricity out of bounds for mean elements",
-        )),
-        2 => Err(Error::TwoLine2Rv("Mean motion must be positive")),
-        3 => Err(Error::TwoLine2Rv(
-            "Eccentricity out of bounds for pert elements",
-        )),
-        4 => Err(Error::TwoLine2Rv("Semi-latus rectum must be positive")),
-        5 => Err(Error::TwoLine2Rv("Epoch elements are sub-orbital")),
-        6 => Err(Error::TwoLine2Rv("Satellite has decayed")),
-        _ => Err(Error::TwoLine2Rv("Unknown error code")),
-    }
+    satrec.into_validated_result()
 }
 
 type Vec3 = [c_double; 3];
@@ -494,7 +503,10 @@ pub(crate) fn run_sgp4(
     };
 
     if !success {
-        Err(Error::Sgp4)
+        match satrec_copy.into_validated_result() {
+            Ok(_) => unreachable!("SGP4 failure but didn't return an error"),
+            Err(e) => Err(e),
+        }
     } else {
         Ok((ro, vo))
     }
@@ -807,8 +819,74 @@ mod tests {
                 vo.as_mut_ptr(),
             );
         }
+        assert_eq!(satrec_copy.error, 0);
+    }
+
+    #[test]
+    fn test_errors() {
+        //This TLE decays on by the end Feb 2022
+        // 0 LEMUR 2 MCCULLAGH
+        //1 43051U 17071Q   22046.92182028  .07161566  12340-4  74927-3 0  9993
+        //2 43051  51.6207 236.5853 0009084 284.2762  75.7254 16.36736354237455
+        let longstr1 =
+            CString::new("1 43051U 17071Q   22046.92182028  .07161566  12340-4  74927-3 0  9993")
+                .unwrap();
+        let longstr2 =
+            CString::new("2 43051  51.6207 236.5853 0009084 284.2762  75.7254 16.36736354237455")
+                .unwrap();
+        let typerun = 'v' as c_char;
+        let typeinput = 'v' as c_char;
+        let opsmode = 'a' as c_char;
+        let whichconst = GravitationalConstant::Wgs72;
+        let mut startmfe: c_double = 0.;
+        let mut stopmfe: c_double = 0.;
+        let mut deltamin: c_double = 0.;
+        let mut satrec: OrbitalElementSet = OrbitalElementSet::default();
+        let mut ro: [c_double; 3] = [0.; 3];
+        let mut vo: [c_double; 3] = [0.; 3];
+
+        unsafe {
+            twoline2rv(
+                longstr1.as_ptr(),
+                longstr2.as_ptr(),
+                typerun,
+                typeinput,
+                opsmode,
+                whichconst,
+                &mut startmfe,
+                &mut stopmfe,
+                &mut deltamin,
+                &mut satrec,
+            );
+        }
+
+        let satrec = satrec;
+        let mut satrec_copy = satrec.to_owned();
+
+        unsafe {
+            sgp4(
+                whichconst,
+                &mut satrec_copy,
+                0.0,
+                ro.as_mut_ptr(),
+                vo.as_mut_ptr(),
+            );
+        }
 
         assert_eq!(satrec_copy.error, 0);
+
+        // Propagate out 60 minutes.
+        let mut satrec_copy = satrec.to_owned();
+        unsafe {
+            sgp4(
+                whichconst,
+                &mut satrec_copy,
+                10000.,
+                ro.as_mut_ptr(),
+                vo.as_mut_ptr(),
+            );
+        }
+        assert_eq!(satrec_copy.error, 6)
     }
 
     #[test]
