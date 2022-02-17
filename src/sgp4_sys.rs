@@ -16,7 +16,7 @@ use thiserror::Error;
 pub enum Error {
     #[error(transparent)]
     CStringNul(#[from] NulError),
-    #[error("Unknown Failure in SGP4 propagator")]
+    #[error("Unknown failure in SGP4 propagator")]
     Unknown,
     #[error("Eccentricity out of bounds for mean elements")]
     InvalidEccentricity,
