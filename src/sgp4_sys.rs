@@ -390,7 +390,7 @@ impl OrbitalElementSet {
         self.mean_motion as _
     }
 
-    pub(crate) fn error_match(self) -> Result<OrbitalElementSet, Error> {
+    pub(crate) fn into_validated_result(self) -> Result<OrbitalElementSet, Error> {
         match self.error {
             0 => Ok(self),
             1 => Err(Error::InvalidEccentricity),
