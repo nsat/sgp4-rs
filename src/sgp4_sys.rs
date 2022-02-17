@@ -22,7 +22,7 @@ pub enum Error {
     InvalidEccentricity,
     #[error("Mean motion must be positive")]
     NegativeMeanMotion,
-    #[error(" Eccentricity out of bounds for pert elements")]
+    #[error("Eccentricity out of bounds for pert elements")]
     PertEccentricity,
     #[error("Semi-latus rectum must be positive")]
     NegativeSemiLatus,
