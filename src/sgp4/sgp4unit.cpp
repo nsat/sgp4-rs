@@ -1888,7 +1888,6 @@ bool sgp4(gravconsttype whichconst, elsetrec &satrec, double tsince,
    // fix tolerance for error recognition
   // sgp4fix am is fixed from the previous nm check
   if ((em >= 1.0) || (em < -0.001) /* || (am < 0.95)*/) {
-    //         printf("# error em %f\n", em);
     satrec.error = 1;
     // sgp4fix to return if there is an error in eccentricity
     return false;
