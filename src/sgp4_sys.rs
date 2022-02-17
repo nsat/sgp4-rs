@@ -476,7 +476,7 @@ pub(crate) fn to_orbital_elements(
         )
     };
 
-    satrec.error_match()
+    satrec.into_validated_result()
 }
 
 type Vec3 = [c_double; 3];
@@ -503,7 +503,7 @@ pub(crate) fn run_sgp4(
     };
 
     if !success {
-        match satrec_copy.error_match() {
+        match satrec_copy.into_validated_result() {
             Ok(_) => unreachable!("SGP4 failure but didn't return an error"),
             Err(e) => Err(e),
         }
