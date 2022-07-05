@@ -1,6 +1,6 @@
 [package]
 name = "sgp4-rs"
-version = "0.3.5"
+version = "0.3.6"
 authors = ["Nick Pascucci <nick.pascucci@spire.com>"]
 edition = "2021"
 
