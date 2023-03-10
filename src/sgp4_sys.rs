@@ -424,7 +424,15 @@ pub(crate) fn julian_day_to_datetime(jd: c_double) -> DateTime<Utc> {
         );
     }
 
-    Utc.with_ymd_and_hms(year, month as u32, day as u32, hour as u32, minute as u32, second as u32).unwrap()
+    Utc.with_ymd_and_hms(
+        year,
+        month as u32,
+        day as u32,
+        hour as u32,
+        minute as u32,
+        second as u32,
+    )
+    .unwrap()
 }
 
 pub(crate) fn datetime_to_julian_day(d: DateTime<Utc>) -> c_double {

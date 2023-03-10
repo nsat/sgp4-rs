@@ -534,15 +534,15 @@ mod tests {
             mean_anomaly: Angle::new::<angle::degree>(1.675200832732889),
             argument_of_latitude: Angle::new::<angle::degree>(999999.1),
             true_longitude: Angle::new::<angle::degree>(999999.1),
-            longitude_of_periapsis: Angle::new::<angle::degree>(999999.1)
+            longitude_of_periapsis: Angle::new::<angle::degree>(999999.1),
         };
 
         let tle_string = coe.as_tle_at(0, time);
-        assert_eq!(tle_string,
+        assert_eq!(
+            tle_string,
             r#"1 00000U 23001A   23069.04166667  .00000000  00000-0  00000-0 0  9992
-2 00000   0.7851   0.4032 0013322   2.1464   1.6752 15.63419485000018"#);
+2 00000   0.7851   0.4032 0013322   2.1464   1.6752 15.63419485000018"#
+        );
         Ok(())
     }
-
-
 }
