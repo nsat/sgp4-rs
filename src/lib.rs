@@ -465,13 +465,13 @@ mod tests {
 
     #[test]
     fn test_julian_day_identity() {
-        let t = Utc.ymd(2020, 1, 1).and_hms(0, 0, 0);
+        let t = Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap();
         assert_eq!(DateTime::<Utc>::from(JulianDay::from(t)), t);
     }
 
     #[test]
     fn test_gmst_conversion() {
-        let t = Utc.ymd(2020, 1, 1).and_hms(0, 0, 0);
+        let t = Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap();
         let a: f64 = 100.1218209532; // GMST for 2020-01-01T00:00:00 in degrees
         let a_rad = a.to_radians();
         assert!(sgp4_sys::close(
@@ -485,7 +485,7 @@ mod tests {
     fn test_can_roundtrip_conversion_of_classical_elements_to_tle() -> Result<()> {
         use float_cmp::assert_approx_eq;
 
-        let epoch = Utc.ymd(2020, 1, 1).and_hms(0, 0, 0);
+        let epoch = Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap();
         let altitude_km = 408.0;
         let earth_radius_km = 6371.0;
         let coe = ClassicalOrbitalElements {
