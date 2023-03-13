@@ -155,7 +155,7 @@ impl ClassicalOrbitalElements {
     /// Note that the generated TLE has the following simplifications:
     /// 1. It assumes that the epoch and the launch date are the same.
     /// 2. Launch number is assumed to be 1, and the launch piece is A.
-    /// 3. Element set number is always 1.
+    /// 3. Element set number is always 999.
     /// 4. Mean motion derivatives and ballistic coefficient are set to zero.
     /// 5. The orbit number is assumed to be zero.
     ///
@@ -175,14 +175,15 @@ impl ClassicalOrbitalElements {
         let epoch_year = epoch.year() % 100;
         let epoch_day = epoch.ordinal();
         let epoch_day_fraction = epoch.num_seconds_from_midnight() as f64 / Self::SECONDS_PER_DAY;
+        let epoch_day_fraction_int = (epoch_day_fraction * 100000000.0).round() as i64;
         let line = format!(
-            "1 {0:05}U {1:2}001A   {1:2}{2:3}.{3:0>8}  .00000000  00000-0  00000-0 0    1",
+            "1 {0:05}U {1:2}001A   {1:2}{2:03}.{3:08}  .00000000  00000-0  00000-0 0  999",
             // |-----| |---------| |---||---| |-----| |--------| |------| |------| ^ |--|
             // 3-8     10-17       19      23 25-32   34-43      45-52    54-61      65 68
             catalog_num,
             epoch_year,
             epoch_day,
-            epoch_day_fraction * 10e8
+            epoch_day_fraction_int
         );
         Self::add_tle_checksum(line)
     }
@@ -192,20 +193,20 @@ impl ClassicalOrbitalElements {
 
         let incl = self.inclination.get::<angle::degree>();
         let raan = self.raan.get::<angle::degree>();
-        let ecc = self.eccentricity;
+        let ecc_int = (self.eccentricity * 10e6).round() as i64;
         let argp = self.argument_of_perigee.get::<angle::degree>();
         let ma = self.mean_anomaly.get::<angle::degree>();
         let consts = sgp4_sys::gravitational_constants();
         let mm = Self::SECONDS_PER_DAY
             / ((2.0 * PI) * (self.semimajor_axis.get::<kilometer>().powi(3) / consts.mu).sqrt());
         let line = format!(
-            "2 {0:05} {1:>8.4} {2:>8.4} {3:0>7} {4:>8.4} {5:>8.4} {6:>11.8}00001",
-            // |----| |------| |------| |-----| |------| |------| |-------||---|
-            // 3-7    9-16     18-25    27-33   35-42    44-51    53-63    64-68
+            "2 {0:05} {1:>8.4} {2:>8.4} {3:07} {4:>8.4} {5:>8.4} {6:>11.8}00001",
+            // |----| |------| |------| |----| |------| |------| |-------||---|
+            // 3-7    9-16     18-25    27-33  35-42    44-51    53-63    64-68
             catalog_num,
             incl,
             raan,
-            ecc * 10e7,
+            ecc_int,
             argp,
             ma,
             mm
@@ -465,13 +466,13 @@ mod tests {
 
     #[test]
     fn test_julian_day_identity() {
-        let t = Utc.ymd(2020, 1, 1).and_hms(0, 0, 0);
+        let t = Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap();
         assert_eq!(DateTime::<Utc>::from(JulianDay::from(t)), t);
     }
 
     #[test]
     fn test_gmst_conversion() {
-        let t = Utc.ymd(2020, 1, 1).and_hms(0, 0, 0);
+        let t = Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap();
         let a: f64 = 100.1218209532; // GMST for 2020-01-01T00:00:00 in degrees
         let a_rad = a.to_radians();
         assert!(sgp4_sys::close(
@@ -485,7 +486,7 @@ mod tests {
     fn test_can_roundtrip_conversion_of_classical_elements_to_tle() -> Result<()> {
         use float_cmp::assert_approx_eq;
 
-        let epoch = Utc.ymd(2020, 1, 1).and_hms(0, 0, 0);
+        let epoch = Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap();
         let altitude_km = 408.0;
         let earth_radius_km = 6371.0;
         let coe = ClassicalOrbitalElements {
@@ -512,6 +513,36 @@ mod tests {
             epsilon = 10.0
         );
         assert_approx_eq!(f64, new_coe.eccentricity, coe.eccentricity, epsilon = 0.01);
+        Ok(())
+    }
+
+    #[test]
+    #[cfg(feature = "tlegen")]
+    fn test_classical_orbital_elements_to_tle() -> Result<()> {
+        use uom::si::length::meter;
+
+        let time = Utc.with_ymd_and_hms(2023, 3, 10, 1, 0, 0).unwrap();
+
+        let coe = ClassicalOrbitalElements {
+            semilatus_rectum: Length::new::<meter>(6755913.465228223),
+            semimajor_axis: Length::new::<meter>(6755925.456114554),
+            eccentricity: 0.0013322422991375329,
+            inclination: Angle::new::<angle::degree>(0.7850853743058481),
+            raan: Angle::new::<angle::degree>(0.4031559142883887),
+            argument_of_perigee: Angle::new::<angle::degree>(2.146362751175218),
+            true_anomaly: Angle::new::<angle::degree>(1.6778503457504903),
+            mean_anomaly: Angle::new::<angle::degree>(1.675200832732889),
+            argument_of_latitude: Angle::new::<angle::degree>(999999.1),
+            true_longitude: Angle::new::<angle::degree>(999999.1),
+            longitude_of_periapsis: Angle::new::<angle::degree>(999999.1),
+        };
+
+        let tle_string = coe.as_tle_at(0, time);
+        assert_eq!(
+            tle_string,
+            r#"1 00000U 23001A   23069.04166667  .00000000  00000-0  00000-0 0  9992
+2 00000   0.7851   0.4032 0013322   2.1464   1.6752 15.63419485000018"#
+        );
         Ok(())
     }
 }
