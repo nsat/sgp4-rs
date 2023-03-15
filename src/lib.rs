@@ -546,15 +546,17 @@ mod tests {
         Ok(())
     }
 
-
-
     #[test]
     #[cfg(feature = "tlegen")]
     fn test_can_roundtrip_state_vector_plus_epoch_to_tle() -> Result<()> {
         use float_cmp::assert_approx_eq;
 
         let epoch = Utc.with_ymd_and_hms(2021, 5, 25, 0, 0, 0).unwrap();
-        let r_1 = [-3767.0783048821595, -5832.3746513067335, 0.013350841794354097];
+        let r_1 = [
+            -3767.0783048821595,
+            -5832.3746513067335,
+            0.013350841794354097,
+        ];
         let v_1 = [5.087843659697572, -3.2858873951805836, 4.561428718239809];
         let svector = StateVector::new(epoch, r_1, v_1);
         let tle_string = svector.coe.as_tle_at(0, epoch);
@@ -573,5 +575,4 @@ mod tests {
         assert_approx_eq!(f64, v_1[2], v_2[2], epsilon = 0.01);
         Ok(())
     }
-
 }
