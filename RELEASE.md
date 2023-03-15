@@ -10,7 +10,9 @@
   --list sgp4-rs`. If not, persuade one of the other owners to add
   you, and make sure you accept that ownership by clicking in the email.
 - Choose whether you are doing a major, minor or patch release.
-- Assuming patch, within the root dir of the repo, do `cargo release
+- Assuming patch, within the root dir of the repo, perform a dry-run using
+ `cargo release patch`.
+- Assuming this works, within the root dir of the repo, do `cargo release
   patch --execute`.
 - This should bump the version in the `Cargo.toml` file, push that
   update, tag the repo appropriately and publish the crate to
