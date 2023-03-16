@@ -333,7 +333,7 @@ pub struct JulianDay(f64);
 
 impl From<DateTime<Utc>> for JulianDay {
     fn from(d: DateTime<Utc>) -> Self {
-        JulianDay(sgp4_sys::datetime_to_julian_day(d) as f64)
+        JulianDay(sgp4_sys::datetime_to_julian_day(d))
     }
 }
 
@@ -358,7 +358,7 @@ impl GreenwichMeanSiderealTime {
 
 impl From<DateTime<Utc>> for GreenwichMeanSiderealTime {
     fn from(d: DateTime<Utc>) -> Self {
-        GreenwichMeanSiderealTime(sgp4_sys::datetime_to_gstime(d) as f64)
+        GreenwichMeanSiderealTime(sgp4_sys::datetime_to_gstime(d))
     }
 }
 
