@@ -8,7 +8,6 @@ use std::ffi::{CString, NulError};
 use std::os::raw::{c_char, c_double, c_int, c_long};
 
 use chrono::prelude::*;
-use chrono::DateTime;
 
 use thiserror::Error;
 

@@ -19,7 +19,7 @@ links = "static=sgp4"
 tlegen = []
 
 [dependencies]
-chrono = { version="0.4", default-features=false }
+chrono = { version="0.4.23", default-features=false }
 thiserror = "1.0"
 uom = "0.34.0"
 
