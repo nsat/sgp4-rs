@@ -218,7 +218,7 @@ impl ClassicalOrbitalElements {
         let checksum = line.chars().fold(0, |acc, c| {
             acc + match c {
                 '-' => 1,
-                c if c.is_digit(10) => c.to_digit(10).unwrap(),
+                c if c.is_ascii_digit() => c.to_digit(10).unwrap(),
                 _ => 0,
             }
         }) % 10;
