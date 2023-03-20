@@ -32,7 +32,9 @@ pub enum Error {
 }
 
 #[allow(dead_code)]
+#[derive(Default)]
 pub(crate) enum RunType {
+    #[default]
     Verification,
     Catalog,
     Manual(InputType),
@@ -59,12 +61,6 @@ impl RunType {
     }
 }
 
-impl Default for RunType {
-    fn default() -> Self {
-        RunType::Verification
-    }
-}
-
 #[allow(dead_code)]
 pub(crate) enum InputType {
     Epoch,
@@ -84,8 +80,10 @@ impl InputType {
 }
 
 #[allow(dead_code)]
+#[derive(Default)]
 pub(crate) enum OperationMode {
     AirForceSpaceCenter,
+    #[default]
     Improved,
 }
 
@@ -97,12 +95,6 @@ impl OperationMode {
             AirForceSpaceCenter => 'a' as c_char,
             Improved => 'i' as c_char,
         }
-    }
-}
-
-impl Default for OperationMode {
-    fn default() -> Self {
-        OperationMode::Improved
     }
 }
 
@@ -258,7 +250,7 @@ pub(crate) struct OrbitalElementSet {
 
 /// Determine if two C doubles are "close", as defined by the EPSILON constant.
 pub(crate) fn close(a: c_double, b: c_double) -> bool {
-    let err = (a - b as f64).abs();
+    let err = (a - b).abs();
     err <= EPSILON
 }
 
