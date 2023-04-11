@@ -1,6 +1,9 @@
+use std::f64::consts::PI;
+
 use chrono::prelude::*;
 use chrono::DateTime;
 use thiserror::Error;
+use uom::si::angle::radian;
 use uom::si::{angle, angular_velocity::radian_per_second, f64::*, length::kilometer};
 
 mod sgp4_sys;
@@ -352,8 +355,34 @@ pub struct MeanOrbitalElements {
     mean_mean_anomaly: Angle,
 }
 
+const mu: f64 = 398600.4418;
+// from https://nssdc.gsfc.nasa.gov/planetary/factsheet/earthfact.html:
+const MAJOR_EARTH_RADIUS: f64 = 6378137.0;  // [m], semi-major axis
+const MINOR_EARTH_RADIUS: f64 = 6356752.0;  // [m], semi-minor axis
+const Rq: f64 = MAJOR_EARTH_RADIUS/1000.0;  // major earth radius in Km
+const J2: f64 = 1.08262668355e-003_f64;
+
 impl From<ClassicalOrbitalElements> for MeanOrbitalElements {
     fn from(coe: ClassicalOrbitalElements) -> Self {
+
+        let two_pi = 2.0 * PI;
+
+        let a = coe.semimajor_axis.get::<kilometer>();
+        let e = coe.eccentricity;
+        let i = coe.inclination.get::<radian>();
+        let w = coe.argument_of_perigee.get::<radian>();
+        let f = coe.true_anomaly.get::<radian>();
+        let u = coe.argument_of_latitude.get::<radian>() % two_pi;
+        let OM = coe.raan.get::<radian>();
+
+        MeanOrbitalElements { 
+            mean_semimajor_axis: (), 
+            mean_eccentricity: (), 
+            mean_inclination: (), 
+            mean_RAAN: (), 
+            mean_arg_perigee: (), 
+            mean_mean_anomaly: () 
+        }
     }
 }
 
