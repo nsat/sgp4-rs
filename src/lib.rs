@@ -343,6 +343,20 @@ impl From<JulianDay> for DateTime<Utc> {
     }
 }
 
+pub struct MeanOrbitalElements {
+    mean_semimajor_axis: Length,
+    mean_eccentricity: f64,
+    mean_inclination: Angle,
+    mean_RAAN: Angle,
+    mean_arg_perigee: Angle,
+    mean_mean_anomaly: Angle,
+}
+
+impl From<ClassicalOrbitalElements> for MeanOrbitalElements {
+    fn from(coe: ClassicalOrbitalElements) -> Self {
+    }
+}
+
 /// Wrapper type representing the angular form of Greenwich Mean Sidereal Time.
 ///
 /// This is primarily used to account for the Earth's rotation during conversion between fixed and
