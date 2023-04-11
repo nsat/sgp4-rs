@@ -381,6 +381,9 @@ impl MeanOrbitalElements {
     fn sqrt(x: f64) -> f64 {
         x.sqrt()
     }
+    fn arctan2(y: f64, x: f64) -> f64 {
+        y.atan2(x)
+    }
 }
 
 impl From<ClassicalOrbitalElements> for MeanOrbitalElements {
@@ -400,50 +403,50 @@ impl From<ClassicalOrbitalElements> for MeanOrbitalElements {
         let ci = Self::cos(i);
         let E = (2. * Self::arctan(Self::sqrt((1.-e)/(1.+e))*Self::tan(f/2.))) % two_pi;
         let M = E - e * Self::sin(E);
-        let gamma2 = -J2/2.*(Rq/a)**2.;  // the minus means :    Osc ---> Mean
-        let eta = Self::sqrt(1.-e**2.);
-        let gamma2_tag = gamma2/(eta**4.);
-        let a_r = (1. + e * Self::cos(f)) / (eta**2.);
-        let a_ave = a + a * gamma2 * ((3.*ci**2.-1.) * (a_r**3. - 1./(eta**3.)) + 3*(1.-ci**2.) * (a_r**3.) * Self::cos(2.*u));
-        let de1 = gamma2_tag / 8. * e * (eta**2.) * (1.-11.*ci**2.-40.*(ci**4.)/(1.-5.*ci**2.)) * Self::cos(2.*w);
-        let de = de1 + eta**2. / 2. * (gamma2 * ((3.*ci**2.-1.) / (eta**6.) *
-                                           (e*eta + e/(1.+eta) + 3.*Self::cos(f) + 3.*e*(Self::cos(f)**2.) +
-                                            (e**2.)*Self::cos(f)**3.) +
-                                           3 * (1-ci**2.) / (eta**6.) * (e + 3.*Self::cos(f) + 3.*e*(Self::cos(f)**2.) +
-                                                                       (e**2.)*Self::cos(f)**3.) * Self::cos(2.*u)) -
-                                 gamma2_tag * (1-ci**2.) * (3.*Self::cos(2.*w+f) + Self::cos(2.*w+3.*f)));
-        let di = (-e * de1 / ((eta**2.)*Self::tan(i)) + gamma2_tag / 2.*ci * Self::sqrt(1.-ci**2.) *
+        let gamma2 = -J2/2.*(Rq/a).powi(2);  // the minus means :    Osc ---> Mean
+        let eta = Self::sqrt(1.-e.powi(2));
+        let gamma2_tag = gamma2/(eta.powi(4));
+        let a_r = (1. + e * Self::cos(f)) / (eta.powi(2));
+        let a_ave = a + a * gamma2 * ((3.*ci.powi(2)-1.) * (a_r.powi(3) - 1./(eta.powi(3))) + 3.*(1.-ci.powi(2)) * (a_r.powi(3)) * Self::cos(2.*u));
+        let de1 = gamma2_tag / 8. * e * (eta.powi(2)) * (1.-11.*ci.powi(2)-40.*(ci.powi(4))/(1.-5.*ci.powi(2))) * Self::cos(2.*w);
+        let de = de1 + eta.powi(2) / 2. * (gamma2 * ((3.*ci.powi(2)-1.) / (eta.powi(6)) *
+                                           (e*eta + e/(1.+eta) + 3.*Self::cos(f) + 3.*e*(Self::cos(f).powi(2)) +
+                                            (e.powi(2))*Self::cos(f).powi(3)) +
+                                           3. * (1.-ci.powi(2)) / (eta.powi(6)) * (e + 3.*Self::cos(f) + 3.*e*(Self::cos(f).powi(2)) +
+                                                                       (e.powi(2))*Self::cos(f).powi(3)) * Self::cos(2.*u)) -
+                                 gamma2_tag * (1.-ci.powi(2)) * (3.*Self::cos(2.*w+f) + Self::cos(2.*w+3.*f)));
+        let di = (-e * de1 / ((eta.powi(2))*Self::tan(i)) + gamma2_tag / 2.*ci * Self::sqrt(1.-ci.powi(2)) *
               (3.*Self::cos(2.*w+2.*f) + 3.*e*Self::cos(2.*w+f) + e*Self::cos(2.*w+3.*f)));
 
         let MWO_ave = (M + w + OM +
-                   gamma2_tag / 8. * (eta**3.) * (1.-11.*ci**2.-40.*(ci**4.)/(1.-5.*ci**2.)) -
-                   gamma2_tag / 16. * (2. + e**2.-11.*(2.+3.*e**2.)*ci**2. -
-                                      40.*(2.+5.*e**2.)*(ci**4.)/(1.-5.*ci**2.) -
-                                      400.*(e**2.)*ci**6./(1.-5.*ci**2.)**2.) +
-                   gamma2_tag / 4. * (- 6. * (1.-5.*ci**2.) * (f-M+e*Self::sin(f)) +
-                                     (3.-5.*ci**2.) * (3.*Self::sin(2.*u)+3.*e*Self::sin(2.*w+f)+e*Self::sin(2.*w+3.*f))) -
-                   gamma2_tag / 8. * (e**2.) * ci * (11. + 80.*(ci**2.)/(1.-5.*ci**2.) + 200.*(ci**4.)/(1.-5.*ci**2.)**2.) -
+                   gamma2_tag / 8. * (eta.powi(3)) * (1.-11.*ci.powi(2)-40.*(ci.powi(4))/(1.-5.*ci.powi(2))) -
+                   gamma2_tag / 16. * (2. + e.powi(2)-11.*(2.+3.*e.powi(2))*ci.powi(2) -
+                                      40.*(2.+5.*e.powi(2))*(ci.powi(4))/(1.-5.*ci.powi(2)) -
+                                      400.*(e.powi(2))*ci.powi(6)/(1.-5.*ci.powi(2)).powi(2)) +
+                   gamma2_tag / 4. * (- 6. * (1.-5.*ci.powi(2)) * (f-M+e*Self::sin(f)) +
+                                     (3.-5.*ci.powi(2)) * (3.*Self::sin(2.*u)+3.*e*Self::sin(2.*w+f)+e*Self::sin(2.*w+3.*f))) -
+                   gamma2_tag / 8. * (e.powi(2)) * ci * (11. + 80.*(ci.powi(2))/(1.-5.*ci.powi(2)) + 200.*(ci.powi(4))/(1.-5.*ci.powi(2)).powi(2)) -
                    gamma2_tag / 2. * ci * (6. * (f-M+e*Self::sin(f)) - 3.*Self::sin(2.*u) - 3.*e*Self::sin(2.*w+f) -
                                           e*Self::sin(2.*w+3.*f)));
 
-        let edM = (gamma2_tag/8.*e*(eta**3.)*(1.-11.*ci**2.-40.*(ci**4.)/(1.-5.*ci**2.)) -
-               gamma2_tag/4.*(eta**3.)*(2.*(3.*ci**2.-1.)*((a_r*eta)**2.+a_r+1.)*Self::sin(f) +
-                                      3.*(1.-ci**2.)*((-(a_r*eta)**2.-a_r+1.)*Self::sin(2.*w+f)+((a_r*eta)**2.+a_r+1./3.) *
+        let edM = (gamma2_tag/8.*e*(eta.powi(3))*(1.-11.*ci.powi(2)-40.*(ci.powi(4))/(1.-5.*ci.powi(2))) -
+               gamma2_tag/4.*(eta.powi(3))*(2.*(3.*ci.powi(2)-1.)*((a_r*eta).powi(2)+a_r+1.)*Self::sin(f) +
+                                      3.*(1.-ci.powi(2))*((-(a_r*eta).powi(2)-a_r+1.)*Self::sin(2.*w+f)+((a_r*eta).powi(2)+a_r+1./3.) *
                                                    Self::sin(2.*w+3.*f))));
 
-        let dOM = (-gamma2_tag/8.*(e**2.)*ci*(11.+80.*(ci**2.)/(1.-5.*ci**2.)+200.*(ci**4.)/(1.-5.*ci**2.)**2.) -
+        let dOM = (-gamma2_tag/8.*(e.powi(2))*ci*(11.+80.*(ci.powi(2))/(1.-5.*ci.powi(2))+200.*(ci.powi(4))/(1.-5.*ci.powi(2)).powi(2)) -
                gamma2_tag/2.*ci*(6.*(f-M+e*Self::sin(f))-3.*Self::sin(2.*u)-3.*e*Self::sin(2.*w+f)-e*Self::sin(2.*w+3.*f)));
 
         let d1 = (e+de)*Self::sin(M) + edM*Self::cos(M);
         let d2 = (e+de)*Self::cos(M) - edM*Self::sin(M);
         let M_ave = Self::arctan2(d1, d2) % two_pi;
-        let e_ave = Self::sqrt(d1**2. + d2**2.);
+        let e_ave = Self::sqrt(d1.powi(2) + d2.powi(2));
 
         let d3 = (Self::sin(i/2.)+Self::cos(i/2.)*di/2.) * Self::sin(OM) + Self::sin(i/2.) * dOM * Self::cos(OM);
         let d4 = (Self::sin(i/2.)+Self::cos(i/2.)*di/2.) * Self::cos(OM) - Self::sin(i/2.) * dOM * Self::sin(OM);
         let OM_ave = Self::arctan2(d3, d4) % two_pi;
 
-        let i_ave = 2. * Self::arcsin(Self::sqrt(d3**2.+d4**2.));
+        let i_ave = 2. * Self::arcsin(Self::sqrt(d3.powi(2)+d4.powi(2)));
 
         let w_ave = MWO_ave - M_ave - OM_ave;
 
