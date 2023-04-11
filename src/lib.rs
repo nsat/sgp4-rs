@@ -375,6 +375,58 @@ impl From<ClassicalOrbitalElements> for MeanOrbitalElements {
         let u = coe.argument_of_latitude.get::<radian>() % two_pi;
         let OM = coe.raan.get::<radian>();
 
+        let ci = np.cos(i);
+        let E = (2 * np.arctan(np.sqrt((1-e)/(1+e))*np.tan(f/2))) % two_pi;
+        let M = E - e * np.sin(E);
+        let gamma2 = -J2/2*(Rq/a)**2;  // the minus means :    Osc ---> Mean
+        let eta = np.sqrt(1-e**2);
+        let gamma2_tag = gamma2/(eta**4);
+        let a_r = (1 + e * np.cos(f)) / (eta**2);
+        let a_ave = a + a * gamma2 * ((3*ci**2-1) * (a_r**3 - 1/(eta**3)) + 3*(1-ci**2) * (a_r**3) * np.cos(2*u));
+        let de1 = gamma2_tag / 8 * e * (eta**2) * (1-11*ci**2-40*(ci**4)/(1-5*ci**2)) * np.cos(2*w);
+        let de = de1 + eta**2 / 2 * (gamma2 * ((3*ci**2-1) / (eta**6) *
+                                           (e*eta + e/(1+eta) + 3*np.cos(f) + 3*e*(np.cos(f)**2) +
+                                            (e**2)*np.cos(f)**3) +
+                                           3 * (1-ci**2) / (eta**6) * (e + 3*np.cos(f) + 3*e*(np.cos(f)**2) +
+                                                                       (e**2)*np.cos(f)**3) * np.cos(2*u)) -
+                                 gamma2_tag * (1-ci**2) * (3*np.cos(2*w+f) + np.cos(2*w+3*f)));
+        let di = (-e * de1 / ((eta**2)*np.tan(i)) + gamma2_tag / 2*ci * np.sqrt(1-ci**2) *
+              (3*np.cos(2*w+2*f) + 3*e*np.cos(2*w+f) + e*np.cos(2*w+3*f)));
+
+        let MWO_ave = (M + w + OM +
+                   gamma2_tag / 8 * (eta**3) * (1-11*ci**2-40*(ci**4)/(1-5*ci**2)) -
+                   gamma2_tag / 16 * (2 + e**2-11*(2+3*e**2)*ci**2 -
+                                      40*(2+5*e**2)*(ci**4)/(1-5*ci**2) -
+                                      400*(e**2)*ci**6/(1-5*ci**2)**2) +
+                   gamma2_tag / 4 * (- 6 * (1-5*ci**2) * (f-M+e*np.sin(f)) +
+                                     (3-5*ci**2) * (3*np.sin(2*u)+3*e*np.sin(2*w+f)+e*np.sin(2*w+3*f))) -
+                   gamma2_tag / 8 * (e**2) * ci * (11 + 80*(ci**2)/(1-5*ci**2) + 200*(ci**4)/(1-5*ci**2)**2) -
+                   gamma2_tag / 2 * ci * (6 * (f-M+e*np.sin(f)) - 3*np.sin(2*u) - 3*e*np.sin(2*w+f) -
+                                          e*np.sin(2*w+3*f)));
+
+        let edM = (gamma2_tag/8*e*(eta**3)*(1-11*ci**2-40*(ci**4)/(1-5*ci**2)) -
+               gamma2_tag/4*(eta**3)*(2*(3*ci**2-1)*((a_r*eta)**2+a_r+1)*np.sin(f) +
+                                      3*(1-ci**2)*((-(a_r*eta)**2-a_r+1)*np.sin(2*w+f)+((a_r*eta)**2+a_r+1/3) *
+                                                   np.sin(2*w+3*f))));
+
+        let dOM = (-gamma2_tag/8*(e**2)*ci*(11+80*(ci**2)/(1-5*ci**2)+200*(ci**4)/(1-5*ci**2)**2) -
+               gamma2_tag/2*ci*(6*(f-M+e*np.sin(f))-3*np.sin(2*u)-3*e*np.sin(2*w+f)-e*np.sin(2*w+3*f)));
+
+        let d1 = (e+de)*np.sin(M) + edM*np.cos(M);
+        let d2 = (e+de)*np.cos(M) - edM*np.sin(M);
+        let M_ave = np.arctan2(d1, d2) % two_pi;
+        let e_ave = np.sqrt(d1**2 + d2**2);
+
+        let d3 = (np.sin(i/2)+np.cos(i/2)*di/2) * np.sin(OM) + np.sin(i/2) * dOM * np.cos(OM);
+        let d4 = (np.sin(i/2)+np.cos(i/2)*di/2) * np.cos(OM) - np.sin(i/2) * dOM * np.sin(OM);
+        let OM_ave = np.arctan2(d3, d4) % two_pi;
+
+        let i_ave = 2 * np.arcsin(np.sqrt(d3**2+d4**2));
+
+        let w_ave = MWO_ave - M_ave - OM_ave;
+
+        //return MeanOrbitalELements(a_ave, e_ave, np.rad2deg(i_ave), np.rad2deg(OM_ave), np.rad2deg(w_ave), np.rad2deg(M_ave));
+
         MeanOrbitalElements { 
             mean_semimajor_axis: (), 
             mean_eccentricity: (), 
