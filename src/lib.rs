@@ -34,61 +34,22 @@ pub struct StateVector {
     /// The satellite velocity in km/s.
     pub velocity: [f64; 3],
 
-    pub coe: ClassicalOrbitalElements,
+    pub osculating_elements: OsculatingOrbitalElements,
+
+    pub mean_elements: MeanOrbitalElements,
 }
 
 impl StateVector {
     pub fn new(epoch: DateTime<Utc>, position: [f64; 3], velocity: [f64; 3]) -> Self {
+        let osculating_elements: OsculatingOrbitalElements = sgp4_sys::to_classical_elements(&position, &velocity).into();
+        let mean_elements = osculating_elements.into();
         Self {
             epoch,
             position,
             velocity,
-            coe: sgp4_sys::to_classical_elements(&position, &velocity).into(),
+            osculating_elements,
+            mean_elements,
         }
-    }
-
-    pub fn semilatus_rectum(&self) -> Length {
-        self.coe.semilatus_rectum
-    }
-
-    pub fn semimajor_axis(&self) -> Length {
-        self.coe.semimajor_axis
-    }
-
-    pub fn inclination(&self) -> Angle {
-        self.coe.inclination
-    }
-
-    pub fn raan(&self) -> Angle {
-        self.coe.raan
-    }
-
-    pub fn mean_anomaly(&self) -> Angle {
-        self.coe.mean_anomaly
-    }
-
-    pub fn true_anomaly(&self) -> Angle {
-        self.coe.true_anomaly
-    }
-
-    pub fn eccentricity(&self) -> f64 {
-        self.coe.eccentricity
-    }
-
-    pub fn longitude_of_periapsis(&self) -> Angle {
-        self.coe.longitude_of_periapsis
-    }
-
-    pub fn true_longitude(&self) -> Angle {
-        self.coe.true_longitude
-    }
-
-    pub fn argument_of_perigee(&self) -> Angle {
-        self.coe.argument_of_perigee
-    }
-
-    pub fn argument_of_latitude(&self) -> Angle {
-        self.coe.argument_of_latitude
     }
 }
 
@@ -97,8 +58,12 @@ impl StateVector {
 /// This structure contains all of the "classical" orbital elements as derivable from a TLE. We
 /// lean on the `uom` crate to provide safe dimensional types which help to avoid bugs related to
 /// mixing units of measure.
+/// 
+/// This elements set is "osculating" in the sense that includes for example the gravitational effect
+/// of the Earth's oblate region at the equator. However the osculating elements set cannot be used 
+/// to generate a TLE, that requires a mean elements set.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct ClassicalOrbitalElements {
+pub struct OsculatingOrbitalElements {
     pub semilatus_rectum: Length,
     pub semimajor_axis: Length,
     pub eccentricity: f64,
@@ -112,7 +77,7 @@ pub struct ClassicalOrbitalElements {
     pub longitude_of_periapsis: Angle,
 }
 
-impl From<sgp4_sys::ClassicalOrbitalElements> for ClassicalOrbitalElements {
+impl From<sgp4_sys::ClassicalOrbitalElements> for OsculatingOrbitalElements {
     fn from(coe: sgp4_sys::ClassicalOrbitalElements) -> Self {
         let semilatus_rectum = Length::new::<kilometer>(coe.p);
         let semimajor_axis = Length::new::<kilometer>(coe.a);
@@ -142,14 +107,8 @@ impl From<sgp4_sys::ClassicalOrbitalElements> for ClassicalOrbitalElements {
     }
 }
 
-impl From<StateVector> for ClassicalOrbitalElements {
-    fn from(sv: StateVector) -> Self {
-        sv.coe
-    }
-}
-
 #[cfg(feature = "tlegen")]
-impl ClassicalOrbitalElements {
+impl MeanOrbitalElements {
     const SECONDS_PER_DAY: f64 = 24.0 * 60.0 * 60.0;
 
     /// Create a formatted Two Line Element string from a Keplerian orbital element set for testing
@@ -173,6 +132,17 @@ impl ClassicalOrbitalElements {
         )
     }
 
+    fn normalize_angle(angle: f64) -> f64 {
+        let mut result_angle = angle;
+        while result_angle >= 360.0 {
+            result_angle -= 360.0;
+        }
+        while result_angle < 0.0 {
+            result_angle += 360.0;
+        }
+        result_angle
+    }
+
     #[cfg(feature = "tlegen")]
     fn tle_line_1(&self, catalog_num: u8, epoch: DateTime<Utc>) -> String {
         let epoch_year = epoch.year() % 100;
@@ -192,16 +162,14 @@ impl ClassicalOrbitalElements {
     }
 
     fn tle_line_2(&self, catalog_num: u8) -> String {
-        use std::f64::consts::PI;
-
-        let incl = self.inclination.get::<angle::degree>();
-        let raan = self.raan.get::<angle::degree>();
-        let ecc_int = (self.eccentricity * 10e6).round() as i64;
-        let argp = self.argument_of_perigee.get::<angle::degree>();
-        let ma = self.mean_anomaly.get::<angle::degree>();
+        let incl = Self::normalize_angle(self.mean_inclination.get::<angle::degree>());
+        let raan = Self::normalize_angle(self.mean_raan.get::<angle::degree>());
+        let ecc_int = (self.mean_eccentricity * 10e6).round() as i64;
+        let argp = Self::normalize_angle(self.mean_arg_perigee.get::<angle::degree>());
+        let ma = Self::normalize_angle(self.mean_mean_anomaly.get::<angle::degree>());
         let consts = sgp4_sys::gravitational_constants();
         let mm = Self::SECONDS_PER_DAY
-            / ((2.0 * PI) * (self.semimajor_axis.get::<kilometer>().powi(3) / consts.mu).sqrt());
+            / ((2.0 * PI) * (self.mean_semimajor_axis.get::<kilometer>().powi(3) / consts.mu).sqrt());
         let line = format!(
             "2 {0:05} {1:>8.4} {2:>8.4} {3:07} {4:>8.4} {5:>8.4} {6:>11.8}00001",
             // |----| |------| |------| |----| |------| |------| |-------||---|
@@ -346,21 +314,15 @@ impl From<JulianDay> for DateTime<Utc> {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MeanOrbitalElements {
     mean_semimajor_axis: Length,
     mean_eccentricity: f64,
     mean_inclination: Angle,
-    mean_RAAN: Angle,
+    mean_raan: Angle,
     mean_arg_perigee: Angle,
     mean_mean_anomaly: Angle,
 }
-
-const mu: f64 = 398600.4418;
-// from https://nssdc.gsfc.nasa.gov/planetary/factsheet/earthfact.html:
-const MAJOR_EARTH_RADIUS: f64 = 6378137.0;  // [m], semi-major axis
-const MINOR_EARTH_RADIUS: f64 = 6356752.0;  // [m], semi-minor axis
-const Rq: f64 = MAJOR_EARTH_RADIUS/1000.0;  // major earth radius in Km
-const J2: f64 = 1.08262668355e-003_f64;
 
 impl MeanOrbitalElements {
     fn cos(x: f64) -> f64 {
@@ -386,9 +348,22 @@ impl MeanOrbitalElements {
     }
 }
 
-impl From<ClassicalOrbitalElements> for MeanOrbitalElements {
+// from https://nssdc.gsfc.nasa.gov/planetary/factsheet/earthfact.html:
+// const MAJOR_EARTH_RADIUS: f64 = 6378137.0;  // [m], semi-major axis
+// #[allow(non_upper_case_globals)]
+// const Rq: f64 = MAJOR_EARTH_RADIUS/1000.0;  // major earth radius in Km
+// const J2: f64 = 1.08262668355e-003_f64;
 
-    fn from(coe: ClassicalOrbitalElements) -> Self {
+
+impl From<OsculatingOrbitalElements> for MeanOrbitalElements {
+    // suppress these warnings to allow code to be closer to Python original.
+    #[allow(non_snake_case, unused_parens)]
+    fn from(coe: OsculatingOrbitalElements) -> Self {
+
+        let consts = sgp4_sys::gravitational_constants();
+
+        let Rq: f64 = consts.radiusearthkm;
+        let J2: f64 = consts.j2;
 
         let two_pi = 2.0 * PI;
 
@@ -450,15 +425,13 @@ impl From<ClassicalOrbitalElements> for MeanOrbitalElements {
 
         let w_ave = MWO_ave - M_ave - OM_ave;
 
-        //return MeanOrbitalELements(a_ave, e_ave, Self::rad2deg(i_ave), Self::rad2deg(OM_ave), Self::rad2deg(w_ave), Self::rad2deg(M_ave));
-
         MeanOrbitalElements { 
-            mean_semimajor_axis: (), 
-            mean_eccentricity: (), 
-            mean_inclination: (), 
-            mean_RAAN: (), 
-            mean_arg_perigee: (), 
-            mean_mean_anomaly: () 
+            mean_semimajor_axis: Length::new::<kilometer>(a_ave),
+            mean_eccentricity: e_ave, 
+            mean_inclination: Angle::new::<radian>(i_ave), 
+            mean_raan: Angle::new::<radian>(OM_ave), 
+            mean_arg_perigee: Angle::new::<radian>(w_ave), 
+            mean_mean_anomaly: Angle::new::<radian>(M_ave), 
         }
     }
 }
@@ -603,58 +576,48 @@ mod tests {
 
     #[test]
     #[cfg(feature = "tlegen")]
-    fn test_can_roundtrip_conversion_of_classical_elements_to_tle() -> Result<()> {
+    fn test_can_roundtrip_conversion_of_mean_elements_to_tle() -> Result<()> {
         use float_cmp::assert_approx_eq;
 
         let epoch = Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap();
         let altitude_km = 408.0;
         let earth_radius_km = 6371.0;
-        let coe = ClassicalOrbitalElements {
-            semilatus_rectum: Length::new::<kilometer>(altitude_km + earth_radius_km),
-            semimajor_axis: Length::new::<kilometer>(altitude_km + earth_radius_km),
-            eccentricity: 0.0,
-            inclination: Angle::new::<angle::degree>(10.0),
-            raan: Angle::new::<angle::degree>(25.0),
-            argument_of_perigee: Angle::new::<angle::degree>(0.0),
-            true_anomaly: Angle::new::<angle::degree>(0.0),
-            mean_anomaly: Angle::new::<angle::degree>(0.0),
-            argument_of_latitude: Angle::new::<angle::degree>(0.0),
-            true_longitude: Angle::new::<angle::degree>(0.0),
-            longitude_of_periapsis: Angle::new::<angle::degree>(0.0),
+        let coe = MeanOrbitalElements {
+            mean_semimajor_axis: Length::new::<kilometer>(altitude_km + earth_radius_km),
+            mean_eccentricity: 0.0,
+            mean_inclination: Angle::new::<angle::degree>(10.0),
+            mean_raan: Angle::new::<angle::degree>(25.0),
+            mean_arg_perigee: Angle::new::<angle::degree>(0.0),
+            mean_mean_anomaly: Angle::new::<angle::degree>(0.0),
         };
         let tle = coe.as_tle_at(0, epoch);
         println!("Generated TLE:\n{}", tle);
         let sv = TwoLineElement::from_lines(&tle)?.propagate_to(epoch)?;
-        let new_coe = ClassicalOrbitalElements::from(sv);
+        let new_coe = sv.mean_elements;
         assert_approx_eq!(
             f64,
-            new_coe.semimajor_axis.get::<kilometer>(),
-            coe.semimajor_axis.get::<kilometer>(),
+            new_coe.mean_semimajor_axis.get::<kilometer>(),
+            coe.mean_semimajor_axis.get::<kilometer>(),
             epsilon = 10.0
         );
-        assert_approx_eq!(f64, new_coe.eccentricity, coe.eccentricity, epsilon = 0.01);
+        assert_approx_eq!(f64, new_coe.mean_eccentricity, coe.mean_eccentricity, epsilon = 0.01);
         Ok(())
     }
 
     #[test]
     #[cfg(feature = "tlegen")]
-    fn test_classical_orbital_elements_to_tle() -> Result<()> {
+    fn test_mean_orbital_elements_to_tle() -> Result<()> {
         use uom::si::length::meter;
 
         let time = Utc.with_ymd_and_hms(2023, 3, 10, 1, 0, 0).unwrap();
 
-        let coe = ClassicalOrbitalElements {
-            semilatus_rectum: Length::new::<meter>(6755913.465228223),
-            semimajor_axis: Length::new::<meter>(6755925.456114554),
-            eccentricity: 0.0013322422991375329,
-            inclination: Angle::new::<angle::degree>(0.7850853743058481),
-            raan: Angle::new::<angle::degree>(0.4031559142883887),
-            argument_of_perigee: Angle::new::<angle::degree>(2.146362751175218),
-            true_anomaly: Angle::new::<angle::degree>(1.6778503457504903),
-            mean_anomaly: Angle::new::<angle::degree>(1.675200832732889),
-            argument_of_latitude: Angle::new::<angle::degree>(999999.1),
-            true_longitude: Angle::new::<angle::degree>(999999.1),
-            longitude_of_periapsis: Angle::new::<angle::degree>(999999.1),
+        let coe = MeanOrbitalElements {
+            mean_semimajor_axis: Length::new::<meter>(6755925.456114554),
+            mean_eccentricity: 0.0013322422991375329,
+            mean_inclination: Angle::new::<angle::degree>(0.7850853743058481),
+            mean_raan: Angle::new::<angle::degree>(0.4031559142883887),
+            mean_arg_perigee: Angle::new::<angle::degree>(2.146362751175218),
+            mean_mean_anomaly: Angle::new::<angle::degree>(1.675200832732889),
         };
 
         let tle_string = coe.as_tle_at(0, time);
@@ -665,6 +628,7 @@ mod tests {
         );
         Ok(())
     }
+//2 00000  36.9665 -122.4467 0017128 361.6011  -2.1383 14.96542799000016
 
     #[test]
     #[cfg(feature = "tlegen")]
@@ -679,10 +643,14 @@ mod tests {
         ];
         let v_1 = [5.087843659697572, -3.2858873951805836, 4.561428718239809];
         let svector = StateVector::new(epoch, r_1, v_1);
-        let tle_string = svector.coe.as_tle_at(0, epoch);
+        let mean_elements_1 = svector.mean_elements;
+        println!("mean_elements_1:{:?}", mean_elements_1);
+        let tle_string = mean_elements_1.as_tle_at(0, epoch);
         let svector_2 = TwoLineElement::from_lines(&tle_string)?.propagate_to(epoch)?;
         let r_2 = svector_2.position;
         let v_2 = svector_2.velocity;
+        let mean_elements_2 = svector_2.mean_elements;
+        println!("mean_elements_2:{:?}", mean_elements_2);
         println!("r_1:{:?}", r_1);
         println!("r_2:{:?}", r_2);
         println!("v_1:{:?}", v_1);
