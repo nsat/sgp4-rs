@@ -12,9 +12,28 @@ use uom::{
     ConstZero,
 };
 
-use crate::{sgp4_sys, Error, Result, StateVector, TwoLineElement};
+use crate::{sgp4_sys, ClassicalOrbitalElements, Error, Result, StateVector, TwoLineElement};
 
 const SECONDS_PER_DAY: f64 = 24.0 * 60.0 * 60.0;
+
+impl ClassicalOrbitalElements {
+    pub fn as_tle_at(&self, catalog_num: u8, epoch: DateTime<Utc>) -> String {
+        let tle = format!(
+            "{}\n{}",
+            tle_line_1(catalog_num, epoch),
+            tle_line_2(
+                catalog_num,
+                self.inclination,
+                self.raan,
+                self.eccentricity,
+                self.argument_of_perigee,
+                self.mean_anomaly,
+                self.semimajor_axis
+            )
+        );
+        tle
+    }
+}
 
 impl StateVector {
     /// Find a TLE string that propagates to the state vector at a given epoch
