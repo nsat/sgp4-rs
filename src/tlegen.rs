@@ -47,7 +47,7 @@ impl StateVector {
         }
         let perturbations = vec![0.1, 0.1, 0.01, 1.0, 5.0, 1.0];
         for i in 0..6 { // use a custom offset for each parameter
-            initial_simplex[i][i] = initial_simplex[i][i] + perturbations[i];
+            initial_simplex[i][i] += perturbations[i];
         }
         let solver: NelderMead<Vec<f64>, f64> = NelderMead::new(initial_simplex);
         let res = Executor::new(cost, solver)
@@ -65,7 +65,7 @@ impl StateVector {
                 let tle = format!(
                     "{}\n{}",
                     tle_line_1(catalog_num, epoch),
-                    params_to_tle_line2(catalog_num, &best_param)
+                    params_to_tle_line2(catalog_num, best_param)
                 );
                 Ok(tle)
             },
@@ -147,7 +147,7 @@ struct FindTleProblem {
     pub velocity: [f64; 3],
 }
 
-fn params_to_tle_line2(catalog_num: u8, param: &Vec<f64>) -> String {
+fn params_to_tle_line2(catalog_num: u8, param: &[f64]) -> String {
     let inclination = Angle::new::<degree>(param[0]);
     let raan = Angle::new::<degree>(param[1]);
     let eccentricity = param[2];
