@@ -1,11 +1,18 @@
 use argmin::{
-    core::{ Executor, CostFunction }, 
-    solver::neldermead::NelderMead
+    core::{CostFunction, Executor},
+    solver::neldermead::NelderMead,
 };
-use chrono::{DateTime, Utc, Datelike, Timelike};
-use uom::{si::{angle::{degree, self}, length::kilometer, f64::{Angle, Length}}, ConstZero};
+use chrono::{DateTime, Datelike, Timelike, Utc};
+use uom::{
+    si::{
+        angle::{self, degree},
+        f64::{Angle, Length},
+        length::kilometer,
+    },
+    ConstZero,
+};
 
-use crate::{ StateVector, Result, Error, sgp4_sys, TwoLineElement };
+use crate::{sgp4_sys, Error, Result, StateVector, TwoLineElement};
 
 const SECONDS_PER_DAY: f64 = 24.0 * 60.0 * 60.0;
 
@@ -40,23 +47,21 @@ impl StateVector {
             self.coe.eccentricity,
             self.coe.argument_of_perigee.get::<degree>(),
             self.coe.mean_anomaly.get::<degree>(),
-            self.coe.semimajor_axis.get::<kilometer>()];
+            self.coe.semimajor_axis.get::<kilometer>(),
+        ];
         let mut initial_simplex: Vec<Vec<f64>> = vec![];
-        for _i in 0..7 { // initial simplex requires n+1 vertices
+        for _i in 0..7 {
+            // initial simplex requires n+1 vertices
             initial_simplex.push(init_param.clone());
         }
         let perturbations = vec![0.1, 0.1, 0.01, 1.0, 5.0, 1.0];
-        for i in 0..6 { // use a custom offset for each parameter
+        for i in 0..6 {
+            // use a custom offset for each parameter
             initial_simplex[i][i] += perturbations[i];
         }
         let solver: NelderMead<Vec<f64>, f64> = NelderMead::new(initial_simplex);
         let res = Executor::new(cost, solver)
-            .configure(|state|
-                state
-                    .param(init_param)
-                    .max_iters(1000)
-                    .target_cost(0.0)
-            )
+            .configure(|state| state.param(init_param).max_iters(1000).target_cost(0.0))
             //.add_observer(SlogLogger::term(), ObserverMode::Always)
             .run();
         match res {
@@ -68,15 +73,11 @@ impl StateVector {
                     params_to_tle_line2(catalog_num, best_param)
                 );
                 Ok(tle)
-            },
-            Err(opt_err) => {
-                Err(Error::OptimizationError(opt_err.to_string()))
             }
+            Err(opt_err) => Err(Error::OptimizationError(opt_err.to_string())),
         }
     }
-
 }
-
 
 fn tle_line_1(catalog_num: u8, epoch: DateTime<Utc>) -> String {
     let epoch_year = epoch.year() % 100;
@@ -95,13 +96,15 @@ fn tle_line_1(catalog_num: u8, epoch: DateTime<Utc>) -> String {
     add_tle_checksum(line)
 }
 
-fn tle_line_2(catalog_num: u8,
-              inclination: Angle,
-              raan: Angle,
-              eccentricity: f64,
-              argument_of_perigee: Angle,
-              mean_anomaly: Angle,
-              semimajor_axis: Length) -> String {
+fn tle_line_2(
+    catalog_num: u8,
+    inclination: Angle,
+    raan: Angle,
+    eccentricity: f64,
+    argument_of_perigee: Angle,
+    mean_anomaly: Angle,
+    semimajor_axis: Length,
+) -> String {
     use std::f64::consts::PI;
 
     let incl = inclination.get::<angle::degree>();
@@ -139,8 +142,6 @@ fn add_tle_checksum(mut line: String) -> String {
     line
 }
 
-
-
 struct FindTleProblem {
     pub epoch: DateTime<Utc>,
     pub position: [f64; 3],
@@ -155,11 +156,15 @@ fn params_to_tle_line2(catalog_num: u8, param: &[f64]) -> String {
     let mean_anomaly = Angle::new::<degree>(param[4]);
     let semimajor_axis = Length::new::<kilometer>(param[5]);
 
-    tle_line_2(catalog_num, 
-        normalize_angle(inclination), normalize_angle(raan), 
-        clamp_eccentricity(eccentricity), 
-        normalize_angle(argument_of_perigee), normalize_angle(mean_anomaly), 
-        semimajor_axis.max(Length::ZERO))
+    tle_line_2(
+        catalog_num,
+        normalize_angle(inclination),
+        normalize_angle(raan),
+        clamp_eccentricity(eccentricity),
+        normalize_angle(argument_of_perigee),
+        normalize_angle(mean_anomaly),
+        semimajor_axis.max(Length::ZERO),
+    )
 }
 
 fn clamp_eccentricity(ecc: f64) -> f64 {
@@ -182,7 +187,6 @@ impl CostFunction for FindTleProblem {
     type Output = f64;
 
     fn cost(&self, param: &Self::Param) -> std::result::Result<f64, argmin::core::Error> {
-
         let catalog_num = 1;
 
         let tle_line_1 = tle_line_1(catalog_num, self.epoch);
@@ -190,12 +194,12 @@ impl CostFunction for FindTleProblem {
         let tle = TwoLineElement::new(&tle_line_1, &tle_line_2)?;
         let prop_sv = tle.propagate_to(self.epoch)?;
 
-        let error = (self.position[0] - prop_sv.position[0]).powi(2) +
-            (self.position[1] - prop_sv.position[1]).powi(2) +
-            (self.position[2] - prop_sv.position[2]).powi(2) +
-            (self.velocity[0] - prop_sv.velocity[0]).powi(2) +
-            (self.velocity[1] - prop_sv.velocity[1]).powi(2) +
-            (self.velocity[2] - prop_sv.velocity[2]).powi(2);
+        let error = (self.position[0] - prop_sv.position[0]).powi(2)
+            + (self.position[1] - prop_sv.position[1]).powi(2)
+            + (self.position[2] - prop_sv.position[2]).powi(2)
+            + (self.velocity[0] - prop_sv.velocity[0]).powi(2)
+            + (self.velocity[1] - prop_sv.velocity[1]).powi(2)
+            + (self.velocity[2] - prop_sv.velocity[2]).powi(2);
 
         Ok(error)
     }
@@ -238,5 +242,4 @@ mod tests {
         assert_approx_eq!(f64, v_1[2], v_2[2], epsilon = 0.01);
         Ok(())
     }
-
 }

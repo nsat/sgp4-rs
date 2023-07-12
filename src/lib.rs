@@ -16,9 +16,8 @@ pub enum Error {
     #[error(transparent)]
     PropagationError(#[from] sgp4_sys::Error),
     #[error("Optimization error: {0}")]
-    OptimizationError(String)
+    OptimizationError(String),
 }
-
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -149,10 +148,6 @@ impl From<StateVector> for ClassicalOrbitalElements {
         sv.coe
     }
 }
-
-
-
-
 
 const TLE_LINE_LENGTH: usize = 69;
 
@@ -407,5 +402,4 @@ mod tests {
             a_rad
         ));
     }
-
 }
