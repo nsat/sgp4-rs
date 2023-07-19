@@ -16,12 +16,14 @@ links = "static=sgp4"
 
 [features]
 # Experimental support for creating TLEs from orbital elements
-tlegen = []
+tlegen = ["dep:argmin", "dep:argmin-math"]
 
 [dependencies]
 chrono = { version="0.4.23", default-features=false }
 thiserror = "1.0"
 uom = "0.34.0"
+argmin = { version = "0.8.1", optional = true }
+argmin-math = { version = "0.3.0", features = ["ndarray_latest-serde", "nalgebra_latest-serde"], optional = true }
 
 [build-dependencies]
 cc = "1.0"

@@ -4,6 +4,8 @@ use thiserror::Error;
 use uom::si::{angle, angular_velocity::radian_per_second, f64::*, length::kilometer};
 
 mod sgp4_sys;
+#[cfg(feature = "tlegen")]
+mod tlegen;
 
 #[derive(Debug, Error, PartialEq)]
 pub enum Error {
@@ -13,6 +15,8 @@ pub enum Error {
     UnknownError(String),
     #[error(transparent)]
     PropagationError(#[from] sgp4_sys::Error),
+    #[error("Optimization error: {0}")]
+    OptimizationError(String),
 }
 
 type Result<T> = std::result::Result<T, Error>;
@@ -142,88 +146,6 @@ impl From<sgp4_sys::ClassicalOrbitalElements> for ClassicalOrbitalElements {
 impl From<StateVector> for ClassicalOrbitalElements {
     fn from(sv: StateVector) -> Self {
         sv.coe
-    }
-}
-
-#[cfg(feature = "tlegen")]
-impl ClassicalOrbitalElements {
-    const SECONDS_PER_DAY: f64 = 24.0 * 60.0 * 60.0;
-
-    /// Create a formatted Two Line Element string from a Keplerian orbital element set for testing
-    /// purposes.
-    ///
-    /// Note that the generated TLE has the following simplifications:
-    /// 1. It assumes that the epoch and the launch date are the same.
-    /// 2. Launch number is assumed to be 1, and the launch piece is A.
-    /// 3. Element set number is always 999.
-    /// 4. Mean motion derivatives and ballistic coefficient are set to zero.
-    /// 5. The orbit number is assumed to be zero.
-    ///
-    /// Because of these simplifications, the elements of the generated TLE are not guaranteed to
-    /// exactly match those of the original element set. This function should not be used for
-    /// production applications.
-    pub fn as_tle_at(&self, catalog_num: u8, epoch: DateTime<Utc>) -> String {
-        format!(
-            "{}\n{}",
-            self.tle_line_1(catalog_num, epoch),
-            self.tle_line_2(catalog_num)
-        )
-    }
-
-    #[cfg(feature = "tlegen")]
-    fn tle_line_1(&self, catalog_num: u8, epoch: DateTime<Utc>) -> String {
-        let epoch_year = epoch.year() % 100;
-        let epoch_day = epoch.ordinal();
-        let epoch_day_fraction = epoch.num_seconds_from_midnight() as f64 / Self::SECONDS_PER_DAY;
-        let epoch_day_fraction_int = (epoch_day_fraction * 100000000.0).round() as i64;
-        let line = format!(
-            "1 {0:05}U {1:2}001A   {1:2}{2:03}.{3:08}  .00000000  00000-0  00000-0 0  999",
-            // |-----| |---------| |---||---| |-----| |--------| |------| |------| ^ |--|
-            // 3-8     10-17       19      23 25-32   34-43      45-52    54-61      65 68
-            catalog_num,
-            epoch_year,
-            epoch_day,
-            epoch_day_fraction_int
-        );
-        Self::add_tle_checksum(line)
-    }
-
-    fn tle_line_2(&self, catalog_num: u8) -> String {
-        use std::f64::consts::PI;
-
-        let incl = self.inclination.get::<angle::degree>();
-        let raan = self.raan.get::<angle::degree>();
-        let ecc_int = (self.eccentricity * 10e6).round() as i64;
-        let argp = self.argument_of_perigee.get::<angle::degree>();
-        let ma = self.mean_anomaly.get::<angle::degree>();
-        let consts = sgp4_sys::gravitational_constants();
-        let mm = Self::SECONDS_PER_DAY
-            / ((2.0 * PI) * (self.semimajor_axis.get::<kilometer>().powi(3) / consts.mu).sqrt());
-        let line = format!(
-            "2 {0:05} {1:>8.4} {2:>8.4} {3:07} {4:>8.4} {5:>8.4} {6:>11.8}00001",
-            // |----| |------| |------| |----| |------| |------| |-------||---|
-            // 3-7    9-16     18-25    27-33  35-42    44-51    53-63    64-68
-            catalog_num,
-            incl,
-            raan,
-            ecc_int,
-            argp,
-            ma,
-            mm
-        );
-        Self::add_tle_checksum(line)
-    }
-
-    fn add_tle_checksum(mut line: String) -> String {
-        let checksum = line.chars().fold(0, |acc, c| {
-            acc + match c {
-                '-' => 1,
-                c if c.is_ascii_digit() => c.to_digit(10).unwrap(),
-                _ => 0,
-            }
-        }) % 10;
-        line.push_str(&checksum.to_string());
-        line
     }
 }
 
@@ -479,100 +401,5 @@ mod tests {
             GreenwichMeanSiderealTime::from(t).as_radians(),
             a_rad
         ));
-    }
-
-    #[test]
-    #[cfg(feature = "tlegen")]
-    fn test_can_roundtrip_conversion_of_classical_elements_to_tle() -> Result<()> {
-        use float_cmp::assert_approx_eq;
-
-        let epoch = Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap();
-        let altitude_km = 408.0;
-        let earth_radius_km = 6371.0;
-        let coe = ClassicalOrbitalElements {
-            semilatus_rectum: Length::new::<kilometer>(altitude_km + earth_radius_km),
-            semimajor_axis: Length::new::<kilometer>(altitude_km + earth_radius_km),
-            eccentricity: 0.0,
-            inclination: Angle::new::<angle::degree>(10.0),
-            raan: Angle::new::<angle::degree>(25.0),
-            argument_of_perigee: Angle::new::<angle::degree>(0.0),
-            true_anomaly: Angle::new::<angle::degree>(0.0),
-            mean_anomaly: Angle::new::<angle::degree>(0.0),
-            argument_of_latitude: Angle::new::<angle::degree>(0.0),
-            true_longitude: Angle::new::<angle::degree>(0.0),
-            longitude_of_periapsis: Angle::new::<angle::degree>(0.0),
-        };
-        let tle = coe.as_tle_at(0, epoch);
-        println!("Generated TLE:\n{}", tle);
-        let sv = TwoLineElement::from_lines(&tle)?.propagate_to(epoch)?;
-        let new_coe = ClassicalOrbitalElements::from(sv);
-        assert_approx_eq!(
-            f64,
-            new_coe.semimajor_axis.get::<kilometer>(),
-            coe.semimajor_axis.get::<kilometer>(),
-            epsilon = 10.0
-        );
-        assert_approx_eq!(f64, new_coe.eccentricity, coe.eccentricity, epsilon = 0.01);
-        Ok(())
-    }
-
-    #[test]
-    #[cfg(feature = "tlegen")]
-    fn test_classical_orbital_elements_to_tle() -> Result<()> {
-        use uom::si::length::meter;
-
-        let time = Utc.with_ymd_and_hms(2023, 3, 10, 1, 0, 0).unwrap();
-
-        let coe = ClassicalOrbitalElements {
-            semilatus_rectum: Length::new::<meter>(6755913.465228223),
-            semimajor_axis: Length::new::<meter>(6755925.456114554),
-            eccentricity: 0.0013322422991375329,
-            inclination: Angle::new::<angle::degree>(0.7850853743058481),
-            raan: Angle::new::<angle::degree>(0.4031559142883887),
-            argument_of_perigee: Angle::new::<angle::degree>(2.146362751175218),
-            true_anomaly: Angle::new::<angle::degree>(1.6778503457504903),
-            mean_anomaly: Angle::new::<angle::degree>(1.675200832732889),
-            argument_of_latitude: Angle::new::<angle::degree>(999999.1),
-            true_longitude: Angle::new::<angle::degree>(999999.1),
-            longitude_of_periapsis: Angle::new::<angle::degree>(999999.1),
-        };
-
-        let tle_string = coe.as_tle_at(0, time);
-        assert_eq!(
-            tle_string,
-            r#"1 00000U 23001A   23069.04166667  .00000000  00000-0  00000-0 0  9992
-2 00000   0.7851   0.4032 0013322   2.1464   1.6752 15.63419485000018"#
-        );
-        Ok(())
-    }
-
-    #[test]
-    #[cfg(feature = "tlegen")]
-    fn test_can_roundtrip_state_vector_plus_epoch_to_tle() -> Result<()> {
-        use float_cmp::assert_approx_eq;
-
-        let epoch = Utc.with_ymd_and_hms(2021, 5, 25, 0, 0, 0).unwrap();
-        let r_1 = [
-            -3767.0783048821595,
-            -5832.3746513067335,
-            0.013350841794354097,
-        ];
-        let v_1 = [5.087843659697572, -3.2858873951805836, 4.561428718239809];
-        let svector = StateVector::new(epoch, r_1, v_1);
-        let tle_string = svector.coe.as_tle_at(0, epoch);
-        let svector_2 = TwoLineElement::from_lines(&tle_string)?.propagate_to(epoch)?;
-        let r_2 = svector_2.position;
-        let v_2 = svector_2.velocity;
-        println!("r_1:{:?}", r_1);
-        println!("r_2:{:?}", r_2);
-        println!("v_1:{:?}", v_1);
-        println!("v_2:{:?}", v_2);
-        assert_approx_eq!(f64, r_1[0], r_2[0], epsilon = 10.);
-        assert_approx_eq!(f64, r_1[1], r_2[1], epsilon = 10.);
-        assert_approx_eq!(f64, r_1[2], r_2[2], epsilon = 10.);
-        assert_approx_eq!(f64, v_1[0], v_2[0], epsilon = 0.01);
-        assert_approx_eq!(f64, v_1[1], v_2[1], epsilon = 0.01);
-        assert_approx_eq!(f64, v_1[2], v_2[2], epsilon = 0.01);
-        Ok(())
     }
 }
