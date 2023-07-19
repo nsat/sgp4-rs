@@ -1,5 +1,8 @@
 use argmin::{
-    core::{CostFunction, Executor, observers::{SlogLogger, ObserverMode}},
+    core::{
+        observers::{ObserverMode, SlogLogger},
+        CostFunction, Executor,
+    },
     solver::neldermead::NelderMead,
 };
 use chrono::{DateTime, Datelike, Timelike, Utc};
@@ -79,10 +82,14 @@ impl StateVector {
             initial_simplex[i][i] += perturbations[i];
         }
         let solver: NelderMead<Vec<f64>, f64> = NelderMead::new(initial_simplex)
-        .with_alpha(0.9).expect("error")
-        .with_gamma(1.1).expect("error")
-        .with_rho(0.25).expect("error")
-        .with_sigma(0.1).expect("error");
+            .with_alpha(0.9)
+            .expect("error")
+            .with_gamma(1.1)
+            .expect("error")
+            .with_rho(0.25)
+            .expect("error")
+            .with_sigma(0.1)
+            .expect("error");
         let res = Executor::new(cost, solver)
             .configure(|state| state.param(init_param).max_iters(1000).target_cost(0.0))
             //.add_observer(SlogLogger::term(), ObserverMode::Always)
@@ -265,7 +272,6 @@ mod tests {
         assert_approx_eq!(f64, v_1[2], v_2[2], epsilon = 0.01);
         Ok(())
     }
-
 
     #[test]
     fn test_roundtrip_tle_to_tle() -> Result<()> {
