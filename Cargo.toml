@@ -23,7 +23,7 @@ chrono = { version="0.4.23", default-features=false }
 thiserror = "1.0"
 uom = "0.36.0"
 argmin = { version = "0.8.1", optional = true }
-argmin-math = { version = "0.3.0", features = ["ndarray_latest-serde", "nalgebra_latest-serde"], optional = true }
+argmin-math = { version = "0.4.0", features = ["ndarray_latest-serde", "nalgebra_latest-serde"], optional = true }
 
 [build-dependencies]
 cc = "1.0"
