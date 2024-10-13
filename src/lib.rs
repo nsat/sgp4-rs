@@ -387,6 +387,23 @@ mod tests {
     }
 
     #[test]
+    fn test_epoch_has_subsecond_precision() {
+        let lines = "1 25544U 98067A   20148.21301450  .00001715  00000-0  38778-4 0  9992
+                     2 25544  51.6435  92.2789 0002570 358.0648 144.9972 15.49396855228767";
+        let tle = TwoLineElement::from_lines(lines).unwrap();
+        assert_eq!(tle.epoch().unwrap().nanosecond(), 452_818_000);
+        let t = NaiveDate::from_ymd_opt(2020, 5, 29)
+            .unwrap()
+            .and_hms_micro_opt(1, 2, 3, 0)
+            .unwrap()
+            .and_utc();
+        let position = tle.propagate_to(t).unwrap().position;
+        assert_eq!((position[0] * 1e3) as i64, 4_262_298);
+        assert_eq!((position[1] * 1e3) as i64, 403_136);
+        assert_eq!((position[2] * 1e3) as i64, -5_284_434);
+    }
+
+    #[test]
     fn test_julian_day_identity() {
         let t = Utc.with_ymd_and_hms(2020, 1, 1, 0, 0, 0).unwrap();
         assert_eq!(DateTime::<Utc>::from(JulianDay::from(t)), t);

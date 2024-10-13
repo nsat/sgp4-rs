@@ -415,15 +415,12 @@ pub(crate) fn julian_day_to_datetime(jd: c_double) -> DateTime<Utc> {
         );
     }
 
-    Utc.with_ymd_and_hms(
-        year,
-        month as u32,
-        day as u32,
-        hour as u32,
-        minute as u32,
-        second as u32,
-    )
-    .unwrap()
+    let usec = (second.fract() * 1e6).floor();
+    NaiveDate::from_ymd_opt(year, month as u32, day as u32)
+        .unwrap()
+        .and_hms_micro_opt(hour as u32, minute as u32, second as u32, usec as u32)
+        .unwrap()
+        .and_utc()
 }
 
 pub(crate) fn datetime_to_julian_day(d: DateTime<Utc>) -> c_double {
